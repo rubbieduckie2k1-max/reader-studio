@@ -40,6 +40,8 @@
     globalNotebookLoaded: false,
     notebookRanges: new WeakMap(),
     progressSaveTimer: null,
+    readerLayoutTimer: null,
+    readerResizeObserver: null,
     settings: {
       theme: localStorage.getItem('reader-theme') || 'light',
       sourceLang: localStorage.getItem('reader-source-lang') || 'en',
@@ -54,7 +56,7 @@
       'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
       'libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
-      'zoomOutBtn','zoomInBtn','fitWidthBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
+      'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
       'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','prevPageBtn','nextPageBtn',
       'footerPrevBtn','footerNextBtn','progressBar','progressText','readerLoading','tocList','bookmarkList','bookmarkCount',
       'notesList','highlightsList','bookNotebookToolbar','notebookEditor','notebookSaveState','selectionToolbar','translationPopover',
@@ -203,6 +205,8 @@
     els.zoomInBtn.addEventListener('click', () => zoomBy(0.1));
     els.fitWidthBtn.addEventListener('click', fitWidth);
     els.spreadBtn.addEventListener('click', toggleSpread);
+    els.savePlaceBtn.addEventListener('click', saveReadingPlace);
+    els.returnPlaceBtn.addEventListener('click', returnToReadingPlace);
     els.bookmarkBtn.addEventListener('click', toggleBookmark);
     els.readerSearchBtn.addEventListener('click', openSearch);
     els.fullscreenBtn.addEventListener('click', toggleFullscreen);
@@ -248,9 +252,11 @@
       await openBook(bookId);
     });
 
-    window.addEventListener('resize', debounce(() => {
-      if (state.currentBook?.type === 'pdf') renderPDFSpread();
-    }, 160));
+    window.addEventListener('resize', debounce(() => refreshReaderLayout(), 160));
+    if ('ResizeObserver' in window) {
+      state.readerResizeObserver = new ResizeObserver(debounce(() => refreshReaderLayout(), 120));
+      state.readerResizeObserver.observe(els.readerMain);
+    }
 
     document.addEventListener('keydown', handleShortcuts);
     document.addEventListener('pointerdown', e => {
@@ -511,6 +517,7 @@
     await loadNotebook();
     renderAnnotationPanels();
     renderBookmarks();
+    updateReadingPlaceButtons();
     showReaderLoading(true);
 
     try {
@@ -733,6 +740,7 @@
     await buildEPUBTOC();
     const target = book.lastLocation?.cfi || undefined;
     await state.rendition.display(target);
+    refreshReaderLayout();
     replayEPUBAnnotations();
     state.epubBook.locations.generate(1200).then(() => {
       state.epubLocationReady = true;
@@ -792,13 +800,17 @@
       'font-family': 'ui-rounded, "Segoe UI", Arial, sans-serif',
       'font-size': `${state.epubFontSize}%`,
       'line-height': '1.72',
-      'color': dark ? '#eef0ec' : '#252824',
+      'color': dark ? '#f4f5f2' : '#151713',
       'background': dark ? '#242724' : '#ffffff',
       'padding-left': '2.2rem',
       'padding-right': '2.2rem'
     };
     try {
-      state.rendition.themes.default({ body, 'p': {'line-height':'1.72'}, 'a': {'color': dark ? '#9bcbb0' : '#2f5f49'} });
+      state.rendition.themes.default({
+        body,
+        'p': {'line-height':'1.72'},
+        'a': {'color': dark ? '#9bcbb0' : '#2f5f49'}
+      });
       state.rendition.themes.fontSize(`${state.epubFontSize}%`);
     } catch (_) {}
   }
@@ -832,19 +844,46 @@
     const cb = () => openNoteModal(ann);
     const color = colorMap[ann.color || 'yellow'];
     try {
+      let rendered;
       if (ann.type === 'underline') {
-        state.rendition.annotations.underline(cfi, { id:ann.id }, cb, `reader-underline-${ann.color || 'blue'}`, {
+        rendered = state.rendition.annotations.underline(cfi, { id:ann.id }, cb, `reader-underline-${ann.color || 'blue'}`, {
           'fill':'none',
-          'stroke':'none',
+          'stroke':color,
           'stroke-opacity':'1',
           'mix-blend-mode':'normal'
         });
       } else if (ann.type === 'strike') {
-        state.rendition.annotations.highlight(cfi, { id:ann.id }, cb, `ann-${ann.id}`, { 'fill': '#d96b6b', 'fill-opacity':'0.20', 'mix-blend-mode':'multiply' });
+        rendered = state.rendition.annotations.highlight(cfi, { id:ann.id }, cb, `ann-${ann.id}`, { 'fill': '#d96b6b', 'fill-opacity':'0.18', 'mix-blend-mode':'multiply' });
       } else {
-        state.rendition.annotations.highlight(cfi, { id:ann.id }, cb, `ann-${ann.id}`, { 'fill': color, 'fill-opacity':'0.42', 'mix-blend-mode':'multiply' });
+        rendered = state.rendition.annotations.highlight(cfi, { id:ann.id }, cb, `ann-${ann.id}`, { 'fill': color, 'fill-opacity':'0.28', 'mix-blend-mode':'multiply' });
       }
-    } catch (_) {}
+      styleEPUBAnnotation(rendered, ann.type, ann.type === 'strike' ? '#d96b6b' : color);
+    } catch (err) {
+      console.warn('Không thể vẽ annotation EPUB', ann.id, err);
+    }
+  }
+
+  function styleEPUBAnnotation(annotation, type, color) {
+    const paint = mark => {
+      const root = mark?.element;
+      if (!root) return;
+      if (type === 'underline') {
+        root.querySelectorAll('rect').forEach(rect => rect.setAttribute('fill', 'none'));
+        root.querySelectorAll('line').forEach(line => {
+          line.setAttribute('stroke', color);
+          line.setAttribute('stroke-width', '2');
+          line.setAttribute('stroke-opacity', '1');
+        });
+        return;
+      }
+      root.querySelectorAll('rect').forEach(rect => {
+        rect.setAttribute('fill', color);
+        rect.setAttribute('fill-opacity', type === 'strike' ? '0.18' : '0.28');
+        rect.style.mixBlendMode = 'multiply';
+      });
+    };
+    paint(annotation?.mark);
+    annotation?.on?.('attach', paint);
   }
 
   function removeEPUBAnnotation(ann) {
@@ -916,6 +955,7 @@
       if (state.currentBook.type === 'pdf') renderPDFSpread();
       else if (state.rendition) {
         try { state.rendition.spread(state.spread ? 'auto' : 'none'); } catch (_) {}
+        refreshReaderLayout(80);
       }
       saveCurrentProgress();
     }
@@ -948,13 +988,34 @@
     const layout = $('.reader-layout');
     const cls = side === 'left' ? 'left-collapsed' : 'right-collapsed';
     layout.classList.toggle(cls);
-    if (state.currentBook?.type === 'pdf') setTimeout(renderPDFSpread, 220);
+    refreshReaderLayout(230);
   }
 
   function setSidebar(side, open) {
     const layout = $('.reader-layout');
     const cls = side === 'left' ? 'left-collapsed' : 'right-collapsed';
     layout.classList.toggle(cls, !open);
+    refreshReaderLayout(230);
+  }
+
+  function refreshReaderLayout(delay = 0) {
+    clearTimeout(state.readerLayoutTimer);
+    state.readerLayoutTimer = setTimeout(async () => {
+      if (!state.currentBook || els.readerView.classList.contains('hidden')) return;
+      if (state.currentBook.type === 'pdf') {
+        await renderPDFSpread();
+        return;
+      }
+      if (!state.rendition) return;
+      const width = Math.floor(els.epubArea.clientWidth);
+      const height = Math.floor(els.epubArea.clientHeight);
+      if (width < 1 || height < 1) return;
+      const anchor = state.rendition.currentLocation()?.start?.cfi;
+      try {
+        state.rendition.resize(width, height);
+        if (anchor) await state.rendition.display(anchor);
+      } catch (_) {}
+    }, delay);
   }
 
   function toggleFullscreen() {
@@ -1104,6 +1165,47 @@
   }
 
   // ---------- Bookmarks ----------
+  async function saveReadingPlace() {
+    if (!state.currentBook) return;
+    let place = null;
+    if (state.currentBook.type === 'pdf') {
+      place = { format:'pdf', location:{ page:state.currentPage }, label:`Trang ${state.currentPage}`, savedAt:Date.now() };
+    } else {
+      const loc = state.rendition?.currentLocation()?.start;
+      if (!loc?.cfi) return toast('Chưa xác định được vị trí hiện tại');
+      place = {
+        format:'epub',
+        location:{ cfi:loc.cfi, href:loc.href },
+        label:els.locationLabel.textContent || `${Math.round(state.currentBook.progress || 0)}%`,
+        savedAt:Date.now()
+      };
+    }
+    state.currentBook.readingPlace = place;
+    await dbPut('books', state.currentBook);
+    updateReadingPlaceButtons();
+    toast(`Đã lưu chỗ đọc · ${place.label}`);
+  }
+
+  async function returnToReadingPlace() {
+    const place = state.currentBook?.readingPlace;
+    if (!place) return toast('Bạn chưa lưu chỗ đọc');
+    if (place.format === 'pdf' && state.currentBook.type === 'pdf') {
+      state.currentPage = clamp(place.location.page, 1, state.pdfDoc.numPages);
+      await renderPDFSpread();
+      els.pdfReader.scrollTop = 0;
+    } else if (place.format === 'epub' && state.rendition) {
+      await state.rendition.display(place.location.cfi);
+    }
+    toast(`Đã quay lại · ${place.label}`);
+  }
+
+  function updateReadingPlaceButtons() {
+    const place = state.currentBook?.readingPlace;
+    els.returnPlaceBtn.disabled = !place;
+    els.returnPlaceBtn.classList.toggle('active', !!place);
+    els.returnPlaceBtn.title = place ? `Quay lại ${place.label}` : 'Chưa có vị trí đã lưu';
+  }
+
   async function toggleBookmark() {
     if (!state.currentBook) return;
     if (state.currentBook.type === 'pdf') {
