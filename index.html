@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f7f5" />
+  <title>Reader Studio</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <section id="libraryView" class="view library-view">
+      <header class="library-header">
+        <div>
+          <div class="brand-row"><div class="brand-mark">R</div><span class="brand-name">Reader Studio</span></div>
+          <h1>Thư viện của bạn</h1>
+          <p>PDF & EPUB · đọc, highlight và ghi chú tại một nơi.</p>
+        </div>
+        <div class="header-actions">
+          <button id="libraryThemeBtn" class="icon-btn" title="Đổi giao diện">☾</button>
+          <button id="settingsBtn" class="icon-btn" title="Cài đặt">⚙</button>
+          <button id="addBookBtn" class="primary-btn">＋ Thêm sách</button>
+          <input id="bookFileInput" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" hidden />
+        </div>
+      </header>
+
+      <nav class="library-nav" aria-label="Khu vực chính">
+        <button class="library-nav-tab active" data-library-panel="books">Thư viện</button>
+        <button class="library-nav-tab" data-library-panel="notebooks">Notebook tổng</button>
+      </nav>
+
+      <div id="libraryBooksPanel">
+        <div class="library-tools">
+          <label class="search-box"><span>⌕</span><input id="librarySearch" placeholder="Tìm sách, tác giả..." /></label>
+          <div class="segmented small"><button class="active" data-filter="all">Tất cả</button><button data-filter="pdf">PDF</button><button data-filter="epub">EPUB</button></div>
+        </div>
+
+        <main>
+          <div id="libraryEmpty" class="empty-state hidden">
+            <div class="empty-illustration">📖</div>
+            <h2>Thư viện đang trống</h2>
+            <p>Thêm một file PDF hoặc EPUB để bắt đầu.</p>
+            <button class="primary-btn" id="emptyAddBtn">＋ Thêm sách</button>
+          </div>
+          <div id="bookGrid" class="book-grid"></div>
+        </main>
+      </div>
+
+      <section id="globalNotebookPanel" class="global-notebook-panel hidden">
+        <aside class="global-notebook-list-wrap">
+          <div class="global-notebook-list-head">
+            <strong>Tất cả notebook</strong>
+            <span id="globalNotebookCount" class="tiny-pill">0</span>
+          </div>
+          <div id="globalNotebookList" class="global-notebook-list"></div>
+        </aside>
+        <div class="global-notebook-workspace">
+          <header class="global-notebook-header">
+            <div><span class="eyebrow">NOTEBOOK</span><h2 id="globalNotebookTitle">Ghi chú chung</h2></div>
+            <button id="globalNotebookOpenBookBtn" class="secondary-btn hidden">Mở sách</button>
+          </header>
+          <div id="globalNotebookToolbar" class="notebook-toolbar notebook-toolbar-large">
+            <button data-cmd="bold" title="In đậm"><b>B</b></button>
+            <button data-cmd="italic" title="In nghiêng"><i>I</i></button>
+            <button data-cmd="underline" title="Gạch dưới"><u>U</u></button>
+            <span class="notebook-toolbar-divider"></span>
+            <label class="notebook-color-tool" title="Màu chữ"><span class="text-color-icon">A</span><input type="color" data-color-cmd="foreColor" value="#20221f" aria-label="Màu chữ" /></label>
+            <label class="notebook-color-tool" title="Màu nền chữ"><span class="highlight-color-icon">A</span><input type="color" data-color-cmd="hiliteColor" value="#ffd95a" aria-label="Màu nền chữ" /></label>
+            <span class="notebook-toolbar-divider"></span>
+            <button data-block="p" title="Văn bản thường">Văn bản</button>
+            <button data-block="h2" title="Tiêu đề">H</button>
+            <button data-cmd="insertUnorderedList">• List</button>
+            <button data-cmd="insertOrderedList">1. List</button>
+            <button data-block="blockquote" title="Trích dẫn">❝</button>
+            <button data-action="divider" title="Đường phân cách">—</button>
+            <button data-cmd="removeFormat" title="Xóa định dạng">Tx</button>
+          </div>
+          <div id="globalNotebookEditor" class="notebook-editor global-notebook-editor" contenteditable="true" data-placeholder="Viết ghi chú chung hoặc chọn một cuốn sách ở bên trái..."></div>
+          <div id="globalNotebookSaveState" class="save-state">Đã lưu</div>
+        </div>
+      </section>
+    </section>
+
+    <section id="readerView" class="view reader-view hidden">
+      <header class="reader-topbar">
+        <div class="topbar-left">
+          <button id="backBtn" class="icon-btn" title="Về thư viện">←</button>
+          <button id="leftSidebarBtn" class="icon-btn" title="Mục lục">☰</button>
+          <div class="reader-book-info"><strong id="readerTitle">Sách</strong><span id="readerAuthor"></span></div>
+        </div>
+        <div class="reader-center-info"><span id="locationLabel">—</span></div>
+        <div class="topbar-actions">
+          <div class="zoom-controls">
+            <button id="zoomOutBtn" class="icon-btn compact">−</button>
+            <button id="fitWidthBtn" class="text-btn compact">Fit</button>
+            <button id="zoomInBtn" class="icon-btn compact">＋</button>
+          </div>
+          <button id="readerSearchBtn" class="icon-btn" title="Tìm kiếm">⌕</button>
+          <button id="bookmarkBtn" class="icon-btn" title="Đánh dấu">☆</button>
+          <button id="spreadBtn" class="icon-btn" title="1/2 trang">▥</button>
+          <button id="rightSidebarBtn" class="icon-btn" title="Ghi chú">☷</button>
+          <button id="readerThemeBtn" class="icon-btn" title="Dark mode">☾</button>
+          <button id="fullscreenBtn" class="icon-btn" title="Toàn màn hình">⛶</button>
+        </div>
+      </header>
+
+      <div class="reader-layout">
+        <aside id="leftSidebar" class="sidebar left-sidebar">
+          <div class="sidebar-header"><strong>Mục lục</strong><button class="icon-btn compact" data-close="left">×</button></div>
+          <div class="sidebar-section-title">CHƯƠNG</div>
+          <div id="tocList" class="toc-list"></div>
+          <div class="sidebar-section-title row-between"><span>BOOKMARKS</span><span id="bookmarkCount" class="tiny-pill">0</span></div>
+          <div id="bookmarkList" class="bookmark-list"></div>
+        </aside>
+
+        <main id="readerMain" class="reader-main">
+          <div id="pdfReader" class="pdf-reader hidden"><div id="pdfPages" class="pdf-pages"></div></div>
+          <div id="epubReader" class="epub-reader hidden"><div id="epubArea" class="epub-area"></div></div>
+          <button id="prevPageBtn" class="edge-nav edge-left" aria-label="Trang trước">‹</button>
+          <button id="nextPageBtn" class="edge-nav edge-right" aria-label="Trang sau">›</button>
+          <div id="readerLoading" class="reader-loading hidden"><div class="spinner"></div><span>Đang mở sách...</span></div>
+        </main>
+
+        <aside id="rightSidebar" class="sidebar right-sidebar">
+          <div class="panel-tabs">
+            <button class="panel-tab active" data-panel="notes">Notes</button>
+            <button class="panel-tab" data-panel="highlights">Highlights</button>
+            <button class="panel-tab" data-panel="notebook">Notebook</button>
+            <button class="icon-btn compact" data-close="right">×</button>
+          </div>
+          <div id="notesPanel" class="side-panel active"><div id="notesList" class="annotation-list"></div></div>
+          <div id="highlightsPanel" class="side-panel"><div id="highlightsList" class="annotation-list"></div></div>
+          <div id="notebookPanel" class="side-panel notebook-panel">
+            <div id="bookNotebookToolbar" class="notebook-toolbar">
+              <button data-cmd="bold" title="In đậm"><b>B</b></button>
+              <button data-cmd="italic" title="In nghiêng"><i>I</i></button>
+              <button data-cmd="underline" title="Gạch dưới"><u>U</u></button>
+              <span class="notebook-toolbar-divider"></span>
+              <label class="notebook-color-tool" title="Màu chữ"><span class="text-color-icon">A</span><input type="color" data-color-cmd="foreColor" value="#20221f" aria-label="Màu chữ" /></label>
+              <label class="notebook-color-tool" title="Màu nền chữ"><span class="highlight-color-icon">A</span><input type="color" data-color-cmd="hiliteColor" value="#ffd95a" aria-label="Màu nền chữ" /></label>
+              <span class="notebook-toolbar-divider"></span>
+              <button data-block="p" title="Bỏ Heading và trở về văn bản thường">Văn bản</button>
+              <button data-block="h2" title="Tiêu đề">H</button>
+              <button data-cmd="insertUnorderedList">• List</button>
+              <button data-cmd="insertOrderedList">1. List</button>
+              <button data-block="blockquote" title="Trích dẫn">❝</button>
+              <button data-action="divider" title="Đường phân cách">—</button>
+              <button data-cmd="removeFormat" title="Xóa định dạng">Tx</button>
+            </div>
+            <div id="notebookEditor" class="notebook-editor" contenteditable="true" data-placeholder="Viết suy nghĩ, tóm tắt hoặc bất cứ điều gì ở đây..."></div>
+            <div id="notebookSaveState" class="save-state">Đã lưu</div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="reader-footer">
+        <button id="footerPrevBtn" class="icon-btn compact">←</button>
+        <div class="progress-wrap"><div id="progressBar" class="progress-bar"><span></span></div><span id="progressText">0%</span></div>
+        <button id="footerNextBtn" class="icon-btn compact">→</button>
+      </footer>
+    </section>
+  </div>
+
+  <div id="selectionToolbar" class="selection-toolbar hidden">
+    <div class="color-dots" aria-label="Highlight color">
+      <button class="color-dot yellow" data-color="yellow" title="Vàng"></button>
+      <button class="color-dot green" data-color="green" title="Xanh lá"></button>
+      <button class="color-dot blue" data-color="blue" title="Xanh dương"></button>
+      <button class="color-dot purple" data-color="purple" title="Tím"></button>
+    </div>
+    <span class="toolbar-divider"></span>
+    <button data-action="underline">U̲</button>
+    <button data-action="strike">S̶</button>
+    <button data-action="note">Note</button>
+    <button data-action="translate">Dịch</button>
+  </div>
+
+  <div id="translationPopover" class="translation-popover hidden">
+    <div class="translation-source" id="translationSource"></div>
+    <div class="translation-result" id="translationResult">Đang dịch...</div>
+    <div class="translation-actions"><button id="translationCopyBtn">Copy</button><button id="translationNotebookBtn">＋ Notebook</button></div>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden"></div>
+  <div id="noteModal" class="modal hidden">
+    <div class="modal-header"><strong>Đánh dấu & ghi chú</strong><button class="icon-btn compact modal-close">×</button></div>
+    <blockquote id="noteQuote"></blockquote>
+    <textarea id="noteInput" rows="5" placeholder="Viết note cho đoạn này..."></textarea>
+    <div class="modal-actions split-actions"><button id="deleteAnnotationBtn" class="danger-btn">Xóa đánh dấu</button><div><button class="secondary-btn modal-cancel">Hủy</button><button id="saveNoteBtn" class="primary-btn">Lưu note</button></div></div>
+  </div>
+
+  <div id="searchModal" class="modal search-modal hidden">
+    <div class="modal-header"><strong>Tìm trong sách</strong><button class="icon-btn compact modal-close">×</button></div>
+    <div class="search-box large"><span>⌕</span><input id="bookSearchInput" placeholder="Nhập từ hoặc cụm từ..." /></div>
+    <div id="searchStatus" class="search-status"></div>
+    <div id="searchResults" class="search-results"></div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-header"><strong>Cài đặt</strong><button class="icon-btn compact modal-close">×</button></div>
+    <div class="settings-grid">
+      <label>Nguồn dịch<select id="sourceLang"><option value="en">English</option><option value="vi">Tiếng Việt</option></select></label>
+      <label>Dịch sang<select id="targetLang"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></label>
+      <p class="settings-note">Dịch nhanh dùng dịch vụ MyMemory và cần kết nối Internet.</p>
+    </div>
+    <div class="modal-actions"><button id="saveSettingsBtn" class="primary-btn">Lưu</button></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="vendor/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
