@@ -237,6 +237,8 @@ body.dark .annotation-card:hover { filter:brightness(1.08); }
 .selection-toolbar { position:fixed; z-index:100; display:flex; align-items:center; gap:4px; padding:6px; border-radius:13px; background:#252824; color:#fff; box-shadow:var(--shadow); transform:translate(-50%, -100%); }
 .selection-toolbar button { min-width:31px; height:30px; padding:0 8px; border-radius:8px; color:white; font-size:11px; }
 .selection-toolbar button:hover { background:rgba(255,255,255,.10); }
+.selection-toolbar .selection-delete { color:#ff9d9d; font-size:18px; font-weight:750; }
+.selection-toolbar .selection-delete:active { background:rgba(255,100,100,.18); }
 .color-dots { display:flex; gap:4px; padding:0 2px; }
 .color-dot { min-width:0 !important; width:23px !important; height:23px !important; border-radius:50% !important; border:2px solid rgba(255,255,255,.35) !important; padding:0 !important; }
 .color-dot.yellow { background:var(--yellow); } .color-dot.green { background:var(--green); } .color-dot.blue { background:var(--blue); } .color-dot.purple { background:var(--purple); }

@@ -1326,8 +1326,9 @@
       const dy = touch.clientY - gesture.y;
       let selectedText = '';
       try { selectedText = contents?.window?.getSelection?.()?.toString?.()?.trim() || ''; } catch (_) {}
-      if (!gesture.interactive && !selectedText && Date.now() - gesture.at < 850 && Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.25) {
-        performSwipeNavigation(dx < 0 ? 1 : -1);
+      const direction = swipeNavigationDirection(dx, dy, 'epub');
+      if (!gesture.interactive && !selectedText && Date.now() - gesture.at < 950 && direction) {
+        performSwipeNavigation(direction);
       }
     });
 
@@ -1559,6 +1560,14 @@
     navigate(dir);
   }
 
+  function swipeNavigationDirection(dx, dy, format = state.currentBook?.type) {
+    const horizontal = Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.2;
+    if (horizontal) return dx < 0 ? 1 : -1;
+    const vertical = format === 'epub' && Math.abs(dy) >= 62 && Math.abs(dy) > Math.abs(dx) * 1.2;
+    if (vertical) return dy < 0 ? 1 : -1;
+    return 0;
+  }
+
   function zoomBy(delta) {
     if (!state.currentBook) return;
     if (state.currentBook.type === 'pdf') {
@@ -1668,10 +1677,11 @@
       const dx = touch.clientX - gesture.x;
       const dy = touch.clientY - gesture.y;
       const elapsed = Date.now() - gesture.at;
-      const shouldNavigate = !gesture.interactive && !selectionText() && elapsed < 850 && Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy) * 1.35;
+      const direction = swipeNavigationDirection(dx, dy);
+      const shouldNavigate = !gesture.interactive && !selectionText() && elapsed < 950 && direction;
       gesture = null;
       if (shouldNavigate) {
-        performSwipeNavigation(dx < 0 ? 1 : -1);
+        performSwipeNavigation(direction);
       }
     }, { passive:true });
 
@@ -1792,6 +1802,7 @@
     if (colorBtn) return addAnnotation('highlight', colorBtn.dataset.color);
     if (!actionBtn) return;
     const action = actionBtn.dataset.action;
+    if (action === 'delete') return deleteAnnotationsAtSelection();
     if (action === 'translate') return translateSelection();
     if (action === 'note') {
       const ann = await addAnnotation('highlight', 'yellow', true);
@@ -1803,6 +1814,72 @@
     }
     if (action === 'underline') return addAnnotation('underline', 'blue');
     if (action === 'strike') return addAnnotation('strike', 'purple');
+  }
+
+  function normalizedSelectionText(value = '') {
+    return value.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  function normalizedRectsOverlap(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function rangesOverlap(first, second, view) {
+    const RangeCtor = view?.Range;
+    if (!first || !second || !RangeCtor) return false;
+    return first.compareBoundaryPoints(RangeCtor.END_TO_START, second) > 0
+      && first.compareBoundaryPoints(RangeCtor.START_TO_END, second) < 0;
+  }
+
+  function annotationsInsideCurrentSelection() {
+    if (!state.selection) return [];
+    const sameFormat = state.annotations.filter(ann => ann.format === state.selection.format);
+    if (state.selection.format === 'pdf') {
+      const selectedRects = state.selection.location?.rects || [];
+      return sameFormat.filter(ann => ann.location?.page === state.selection.location?.page
+        && (ann.location?.rects || []).some(saved => selectedRects.some(current => normalizedRectsOverlap(saved, current))));
+    }
+
+    const matches = [];
+    let comparedByPosition = false;
+    try {
+      for (const contents of state.rendition?.getContents?.() || []) {
+        let selectedRange;
+        try { selectedRange = contents.range(state.selection.location?.cfi); } catch (_) { continue; }
+        if (!selectedRange) continue;
+        comparedByPosition = true;
+        for (const ann of sameFormat) {
+          try {
+            const annotationRange = contents.range(ann.location?.cfi);
+            if (rangesOverlap(selectedRange, annotationRange, contents.window) && !matches.includes(ann)) matches.push(ann);
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    if (comparedByPosition) return matches;
+
+    // Compatibility fallback for annotations saved by an older app version.
+    const selectedText = normalizedSelectionText(state.selection.text);
+    return sameFormat.filter(ann => {
+      const savedText = normalizedSelectionText(ann.text);
+      return selectedText && savedText && (savedText.includes(selectedText) || selectedText.includes(savedText));
+    });
+  }
+
+  async function deleteAnnotationsAtSelection() {
+    const matches = annotationsInsideCurrentSelection();
+    if (!matches.length) return toast('Vùng này chưa có highlight hoặc gạch dưới');
+    for (const ann of matches) {
+      removeEPUBAnnotation(ann);
+      await dbDelete('annotations', ann.id);
+    }
+    const ids = new Set(matches.map(ann => ann.id));
+    state.annotations = state.annotations.filter(ann => !ids.has(ann.id));
+    const pdfPages = [...new Set(matches.filter(ann => ann.format === 'pdf').map(ann => ann.location?.page))];
+    if (pdfPages.length) await renderPDFSpread();
+    renderAnnotationPanels();
+    hideSelectionTools(true);
+    toast(matches.length > 1 ? `Đã xóa ${matches.length} đánh dấu` : 'Đã xóa đánh dấu');
   }
 
   async function addAnnotation(type, color, keepSelection = false) {
