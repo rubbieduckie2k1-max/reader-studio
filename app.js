@@ -15,9 +15,13 @@
     purple: '#bda0eb'
   };
   const GLOBAL_NOTEBOOK_ID = '__reader_studio_global__';
+  const LEGACY_DB_NAME = 'ReaderStudioDB';
+  const SYNC_STORES = ['books', 'annotations', 'bookmarks', 'notebooks'];
 
   const state = {
     db: null,
+    legacyDb: null,
+    activeDbName: LEGACY_DB_NAME,
     books: [],
     currentBook: null,
     pdfDoc: null,
@@ -42,6 +46,14 @@
     progressSaveTimer: null,
     readerLayoutTimer: null,
     readerResizeObserver: null,
+    supabase: null,
+    cloudUser: null,
+    cloudConfigured: false,
+    syncing: false,
+    syncTimer: null,
+    syncInterval: null,
+    applyingRemote: false,
+    authSwitching: false,
     settings: {
       theme: localStorage.getItem('reader-theme') || 'light',
       sourceLang: localStorage.getItem('reader-source-lang') || 'en',
@@ -55,21 +67,22 @@
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch',
       'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
-      'libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
+      'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
       'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','prevPageBtn','nextPageBtn',
       'footerPrevBtn','footerNextBtn','progressBar','progressText','readerLoading','tocList','bookmarkList','bookmarkCount',
       'notesList','highlightsList','bookNotebookToolbar','notebookEditor','notebookSaveState','selectionToolbar','translationPopover',
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang',
-      'saveSettingsBtn','toast'
+      'saveSettingsBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
+      'signUpBtn','signInBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn','toast'
     ].forEach(id => els[id] = document.getElementById(id));
   };
 
   // ---------- IndexedDB ----------
-  function openDB() {
+  function openDB(name = LEGACY_DB_NAME) {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('ReaderStudioDB', 1);
+      const req = indexedDB.open(name, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('books')) db.createObjectStore('books', { keyPath: 'id' });
@@ -82,60 +95,532 @@
           store.createIndex('bookId', 'bookId', { unique: false });
         }
         if (!db.objectStoreNames.contains('notebooks')) db.createObjectStore('notebooks', { keyPath: 'bookId' });
+        if (!db.objectStoreNames.contains('syncQueue')) db.createObjectStore('syncQueue', { keyPath: 'key' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
   }
 
-  function tx(storeName, mode = 'readonly') {
-    return state.db.transaction(storeName, mode).objectStore(storeName);
+  function tx(storeName, mode = 'readonly', database = state.db) {
+    return database.transaction(storeName, mode).objectStore(storeName);
   }
 
-  function dbGet(store, key) {
+  function dbGet(store, key, database = state.db) {
     return new Promise((resolve, reject) => {
-      const req = tx(store).get(key);
+      const req = tx(store, 'readonly', database).get(key);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
   }
 
-  function dbGetAll(store) {
+  function dbGetAll(store, database = state.db) {
     return new Promise((resolve, reject) => {
-      const req = tx(store).getAll();
+      const req = tx(store, 'readonly', database).getAll();
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
   }
 
-  function dbGetAllByBook(store, bookId) {
+  function dbGetAllByBook(store, bookId, database = state.db) {
     return new Promise((resolve, reject) => {
-      const os = tx(store);
+      const os = tx(store, 'readonly', database);
       const req = os.index('bookId').getAll(bookId);
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
   }
 
-  function dbPut(store, value) {
-    return new Promise((resolve, reject) => {
-      const req = tx(store, 'readwrite').put(value);
-      req.onsuccess = () => resolve(value);
+  async function dbPut(store, value, options = {}) {
+    const database = options.database || state.db;
+    if (SYNC_STORES.includes(store) && !value.updatedAt) value.updatedAt = value.createdAt || Date.now();
+    await new Promise((resolve, reject) => {
+      const req = tx(store, 'readwrite', database).put(value);
+      req.onsuccess = resolve;
       req.onerror = () => reject(req.error);
     });
+    if (!options.skipSync) await queueSyncChange(store, value, 'put', database);
+    return value;
   }
 
-  function dbDelete(store, key) {
-    return new Promise((resolve, reject) => {
-      const req = tx(store, 'readwrite').delete(key);
-      req.onsuccess = () => resolve();
+  async function dbDelete(store, key, options = {}) {
+    const database = options.database || state.db;
+    const previous = SYNC_STORES.includes(store) ? await dbGet(store, key, database).catch(() => null) : null;
+    await new Promise((resolve, reject) => {
+      const req = tx(store, 'readwrite', database).delete(key);
+      req.onsuccess = resolve;
       req.onerror = () => reject(req.error);
     });
+    if (!options.skipSync) await queueSyncChange(store, previous || { id:key, bookId:key }, 'delete', database);
   }
 
   async function deleteByBook(storeName, bookId) {
     const rows = await dbGetAllByBook(storeName, bookId);
     await Promise.all(rows.map(row => dbDelete(storeName, row.id)));
+  }
+
+  // ---------- Account & cloud sync ----------
+  function recordId(store, value) {
+    return store === 'notebooks' ? value.bookId : value.id;
+  }
+
+  function recordTimestamp(value) {
+    return Number(value?.updatedAt || value?.createdAt || 0);
+  }
+
+  function cloudConfig() {
+    const raw = window.READER_STUDIO_CONFIG || {};
+    const url = String(raw.supabaseUrl || '').trim();
+    const key = String(raw.supabasePublishableKey || raw.supabaseAnonKey || '').trim();
+    const placeholder = /YOUR_|PASTE_|example|project-url/i;
+    return { url, key, configured: /^https?:\/\//.test(url) && key.length > 20 && !placeholder.test(`${url} ${key}`) };
+  }
+
+  function userDbName(userId) {
+    return `ReaderStudioDB-user-${userId}`;
+  }
+
+  function cloudBookPath(book) {
+    const ext = book?.type === 'pdf' ? 'pdf' : 'epub';
+    return `${state.cloudUser.id}/${book.id}/book.${ext}`;
+  }
+
+  async function queueSyncChange(store, value, operation, database) {
+    if (!SYNC_STORES.includes(store) || state.applyingRemote || !state.cloudUser) return;
+    if (database !== state.db || state.activeDbName === LEGACY_DB_NAME) return;
+    const itemId = recordId(store, value);
+    if (!itemId) return;
+    const change = {
+      key: `${store}:${itemId}`,
+      store,
+      itemId,
+      bookId: store === 'books' ? itemId : (value.bookId || null),
+      operation,
+      updatedAt: operation === 'delete' ? Date.now() : (recordTimestamp(value) || Date.now()),
+      filePath: store === 'books' ? (value.cloudFilePath || cloudBookPath(value)) : null
+    };
+    await dbPut('syncQueue', change, { database, skipSync:true });
+    setSyncStatus('pending', 'Chờ đồng bộ');
+    scheduleCloudFlush();
+  }
+
+  function scheduleCloudFlush(delay = 900) {
+    if (!state.cloudUser || !navigator.onLine) return;
+    clearTimeout(state.syncTimer);
+    state.syncTimer = setTimeout(runQueuedSync, delay);
+  }
+
+  async function initCloud() {
+    const config = cloudConfig();
+    state.cloudConfigured = config.configured;
+    updateAccountUI();
+    if (!config.configured) return;
+    try {
+      if (!window.supabase?.createClient) {
+        await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', 'Supabase');
+      }
+      if (!window.supabase?.createClient) throw new Error('Không tải được thư viện Supabase.');
+      state.supabase = window.supabase.createClient(config.url, config.key, {
+        auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+      });
+      const { data, error } = await state.supabase.auth.getSession();
+      if (error) throw error;
+      if (data.session?.user) await activateCloudUser(data.session.user);
+      else updateAccountUI();
+      state.supabase.auth.onAuthStateChange((event, session) => {
+        setTimeout(() => {
+          if (session?.user) activateCloudUser(session.user);
+          else if (event === 'SIGNED_OUT') deactivateCloudUser();
+        }, 0);
+      });
+      state.syncInterval = setInterval(() => {
+        if (document.visibilityState === 'visible' && state.cloudUser && navigator.onLine) syncNow({ quiet:true });
+      }, 45000);
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('error', 'Lỗi cấu hình sync');
+      updateAccountUI(error.message);
+    }
+  }
+
+  async function activateCloudUser(user) {
+    if (state.authSwitching) return;
+    if (state.cloudUser?.id === user.id && state.activeDbName === userDbName(user.id)) return;
+    state.authSwitching = true;
+    try {
+      state.cloudUser = user;
+      state.activeDbName = userDbName(user.id);
+      state.db = await openDB(state.activeDbName);
+      state.lastSyncAt = 0;
+      state.globalNotebookLoaded = false;
+      state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
+      await showLibraryPanel('books');
+      await refreshLibrary();
+      updateAccountUI();
+      await syncNow({ quiet:true });
+      await updateLegacyMigrationUI();
+    } finally {
+      state.authSwitching = false;
+    }
+  }
+
+  async function deactivateCloudUser() {
+    clearTimeout(state.syncTimer);
+    state.cloudUser = null;
+    state.lastSyncAt = 0;
+    state.activeDbName = LEGACY_DB_NAME;
+    state.db = state.legacyDb;
+    state.globalNotebookLoaded = false;
+    state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
+    await showLibraryPanel('books');
+    await refreshLibrary();
+    updateAccountUI();
+  }
+
+  function setSyncStatus(mode, text) {
+    if (!els.syncStatus) return;
+    els.syncStatus.className = `sync-status ${mode || ''}`.trim();
+    $('span', els.syncStatus).textContent = text;
+    if (els.syncDetail) els.syncDetail.textContent = text;
+  }
+
+  function updateAccountUI(errorMessage = '') {
+    if (!els.accountBtn) return;
+    els.cloudNotConfigured.classList.toggle('hidden', state.cloudConfigured);
+    els.signedOutPanel.classList.toggle('hidden', !state.cloudConfigured || !!state.cloudUser);
+    els.signedInPanel.classList.toggle('hidden', !state.cloudUser);
+    els.accountBtn.textContent = state.cloudUser ? 'Tài khoản' : 'Đăng nhập';
+    if (state.cloudUser) {
+      els.accountEmail.textContent = state.cloudUser.email || 'Tài khoản Reader Studio';
+      if (!state.syncing) setSyncStatus('online', state.lastSyncAt ? 'Đã đồng bộ' : 'Đã đăng nhập');
+    } else if (state.cloudConfigured) {
+      setSyncStatus('', 'Chưa đăng nhập');
+    } else {
+      setSyncStatus('', 'Chỉ lưu trên máy');
+    }
+    if (errorMessage) els.authMessage.textContent = errorMessage;
+  }
+
+  async function openAccountModal() {
+    els.authMessage.textContent = '';
+    updateAccountUI();
+    openModal(els.authModal);
+    if (state.cloudUser) await updateLegacyMigrationUI();
+  }
+
+  function friendlyAuthError(error) {
+    const message = String(error?.message || error || 'Không thể đăng nhập.');
+    if (/invalid login credentials/i.test(message)) return 'Email hoặc mật khẩu chưa đúng.';
+    if (/email not confirmed/i.test(message)) return 'Bạn cần xác nhận email trước khi đăng nhập.';
+    if (/user already registered/i.test(message)) return 'Email này đã có tài khoản. Hãy bấm Đăng nhập.';
+    if (/password/i.test(message) && /least|short/i.test(message)) return 'Mật khẩu cần có ít nhất 6 ký tự.';
+    return message;
+  }
+
+  async function handleSignIn() {
+    const email = els.authEmail.value.trim();
+    const password = els.authPassword.value;
+    if (!email || !password) return (els.authMessage.textContent = 'Hãy nhập email và mật khẩu.');
+    els.signInBtn.disabled = true;
+    els.authMessage.textContent = 'Đang đăng nhập...';
+    try {
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      els.authMessage.textContent = '';
+      closeModals();
+      toast('Đã đăng nhập · đang tải dữ liệu');
+    } catch (error) {
+      els.authMessage.textContent = friendlyAuthError(error);
+    } finally {
+      els.signInBtn.disabled = false;
+    }
+  }
+
+  async function handleSignUp() {
+    const email = els.authEmail.value.trim();
+    const password = els.authPassword.value;
+    if (!email || password.length < 6) return (els.authMessage.textContent = 'Nhập email cá nhân và mật khẩu từ 6 ký tự.');
+    els.signUpBtn.disabled = true;
+    els.authMessage.textContent = 'Đang tạo tài khoản...';
+    try {
+      const redirect = `${location.origin}${location.pathname}`;
+      const { data, error } = await state.supabase.auth.signUp({ email, password, options:{ emailRedirectTo:redirect } });
+      if (error) throw error;
+      els.authMessage.textContent = data.session
+        ? 'Đã tạo tài khoản và đăng nhập.'
+        : 'Đã tạo tài khoản. Hãy mở email xác nhận rồi quay lại đăng nhập.';
+    } catch (error) {
+      els.authMessage.textContent = friendlyAuthError(error);
+    } finally {
+      els.signUpBtn.disabled = false;
+    }
+  }
+
+  async function handleSignOut() {
+    if (!state.supabase) return;
+    if (state.globalNotebookLoaded) await saveGlobalNotebook();
+    els.signOutBtn.disabled = true;
+    const { error } = await state.supabase.auth.signOut();
+    els.signOutBtn.disabled = false;
+    if (error) return toast(friendlyAuthError(error), 3500);
+    closeModals();
+    toast('Đã đăng xuất · dữ liệu tài khoản đã được ẩn');
+  }
+
+  function serializeRecord(store, value) {
+    if (store !== 'books') return value;
+    const { fileData, ...metadata } = value;
+    return metadata;
+  }
+
+  async function uploadBookFile(book) {
+    if (book.cloudFilePath) return book.cloudFilePath;
+    if (!book.fileData) throw new Error(`Thiếu file của “${book.title}”.`);
+    const path = cloudBookPath(book);
+    const mime = book.type === 'pdf' ? 'application/pdf' : 'application/epub+zip';
+    const body = new Blob([book.fileData], { type:mime });
+    const { error } = await state.supabase.storage.from('reader-books').upload(path, body, {
+      upsert:true,
+      contentType:mime,
+      cacheControl:'3600'
+    });
+    if (error) throw error;
+    book.cloudFilePath = path;
+    await dbPut('books', book, { skipSync:true });
+    return path;
+  }
+
+  async function flushSyncQueue() {
+    if (!state.cloudUser || !state.supabase || !navigator.onLine) return;
+    const changes = (await dbGetAll('syncQueue')).sort((a,b) => a.updatedAt - b.updatedAt);
+    for (const change of changes) {
+      if (change.operation === 'delete') {
+        const payload = {
+          user_id:state.cloudUser.id, store:change.store, item_id:change.itemId,
+          book_id:change.bookId, data:null, file_path:change.filePath,
+          updated_at:change.updatedAt, deleted:true
+        };
+        const { error } = await state.supabase.from('reader_records').upsert(payload, { onConflict:'user_id,store,item_id' });
+        if (error) throw error;
+        if (change.store === 'books' && change.filePath) {
+          const removed = await state.supabase.storage.from('reader-books').remove([change.filePath]);
+          if (removed.error) console.warn('Không xóa được file cloud cũ:', removed.error);
+        }
+        await completeQueuedChange(change);
+        continue;
+      }
+
+      const value = await dbGet(change.store, change.itemId);
+      if (!value) {
+        change.operation = 'delete';
+        change.updatedAt = Date.now();
+        await dbPut('syncQueue', change, { skipSync:true });
+        scheduleCloudFlush(200);
+        continue;
+      }
+      let filePath = value.cloudFilePath || null;
+      if (change.store === 'books') filePath = await uploadBookFile(value);
+      const payload = {
+        user_id:state.cloudUser.id,
+        store:change.store,
+        item_id:change.itemId,
+        book_id:change.store === 'books' ? change.itemId : (value.bookId || null),
+        data:serializeRecord(change.store, value),
+        file_path:filePath,
+        updated_at:recordTimestamp(value) || Date.now(),
+        deleted:false
+      };
+      const { error } = await state.supabase.from('reader_records').upsert(payload, { onConflict:'user_id,store,item_id' });
+      if (error) throw error;
+      await completeQueuedChange(change);
+    }
+  }
+
+  async function completeQueuedChange(processed) {
+    const latest = await dbGet('syncQueue', processed.key).catch(() => null);
+    if (!latest) return;
+    if (latest.operation === processed.operation && Number(latest.updatedAt) <= Number(processed.updatedAt)) {
+      await dbDelete('syncQueue', processed.key, { skipSync:true });
+    }
+  }
+
+  async function fetchRemoteRecords() {
+    const rows = [];
+    const pageSize = 500;
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await state.supabase.from('reader_records')
+        .select('*').eq('user_id', state.cloudUser.id).range(from, from + pageSize - 1);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+    return rows;
+  }
+
+  async function applyRemoteRecord(remote) {
+    state.applyingRemote = true;
+    try {
+      if (remote.deleted) {
+        await dbDelete(remote.store, remote.item_id, { skipSync:true });
+        return;
+      }
+      const value = { ...(remote.data || {}) };
+      if (remote.store === 'books') {
+        const local = await dbGet('books', remote.item_id).catch(() => null);
+        value.id = remote.item_id;
+        value.cloudFilePath = remote.file_path || value.cloudFilePath || null;
+        if (local?.fileData) value.fileData = local.fileData;
+      } else if (remote.store === 'notebooks') {
+        value.bookId = remote.item_id;
+      } else {
+        value.id = remote.item_id;
+      }
+      await dbPut(remote.store, value, { skipSync:true });
+    } finally {
+      state.applyingRemote = false;
+    }
+  }
+
+  async function reconcileCloud() {
+    const remoteRows = await fetchRemoteRecords();
+    const remote = new Map(remoteRows.map(row => [`${row.store}:${row.item_id}`, row]));
+    for (const store of SYNC_STORES) {
+      const localRows = await dbGetAll(store);
+      for (const value of localRows) {
+        const itemId = recordId(store, value);
+        const key = `${store}:${itemId}`;
+        const cloud = remote.get(key);
+        if (!cloud) {
+          await queueSyncChange(store, value, 'put', state.db);
+          continue;
+        }
+        remote.delete(key);
+        const localTime = recordTimestamp(value);
+        const remoteTime = Number(cloud.updated_at || 0);
+        if (cloud.deleted) {
+          if (localTime > remoteTime) await queueSyncChange(store, value, 'put', state.db);
+          else await applyRemoteRecord(cloud);
+        } else if (remoteTime > localTime) {
+          await applyRemoteRecord(cloud);
+        } else if (localTime > remoteTime) {
+          await queueSyncChange(store, value, 'put', state.db);
+        } else if (store === 'books' && !value.cloudFilePath && cloud.file_path) {
+          await applyRemoteRecord(cloud);
+        }
+      }
+    }
+    for (const cloud of remote.values()) await applyRemoteRecord(cloud);
+  }
+
+  async function runQueuedSync() {
+    if (state.syncing || !state.cloudUser || !navigator.onLine) return scheduleCloudFlush(1800);
+    state.syncing = true;
+    setSyncStatus('syncing', 'Đang đồng bộ...');
+    try {
+      await flushSyncQueue();
+      state.lastSyncAt = Date.now();
+      setSyncStatus('online', 'Đã đồng bộ');
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('error', 'Chưa đồng bộ được');
+    } finally {
+      state.syncing = false;
+    }
+  }
+
+  async function syncNow(options = {}) {
+    if (!state.cloudUser || !state.supabase) return;
+    if (!navigator.onLine) {
+      setSyncStatus('error', 'Đang ngoại tuyến');
+      if (!options.quiet) toast('Không có kết nối Internet');
+      return;
+    }
+    if (state.syncing) return;
+    state.syncing = true;
+    els.syncNowBtn && (els.syncNowBtn.disabled = true);
+    setSyncStatus('syncing', 'Đang đồng bộ...');
+    try {
+      await flushSyncQueue();
+      await reconcileCloud();
+      await flushSyncQueue();
+      state.lastSyncAt = Date.now();
+      await refreshLibrary();
+      setSyncStatus('online', 'Đã đồng bộ');
+      if (!options.quiet) toast('Đã đồng bộ xong');
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('error', 'Đồng bộ gặp lỗi');
+      if (!options.quiet) toast(`Không thể đồng bộ: ${error.message || 'lỗi không xác định'}`, 4200);
+    } finally {
+      state.syncing = false;
+      els.syncNowBtn && (els.syncNowBtn.disabled = false);
+    }
+  }
+
+  async function ensureLocalBookFile(book) {
+    if (book.fileData) return book;
+    if (!state.cloudUser || !state.supabase || !book.cloudFilePath) throw new Error('File sách chưa có trên thiết bị này.');
+    if (!navigator.onLine) throw new Error('Hãy kết nối Internet để tải sách lần đầu trên thiết bị này.');
+    const { data, error } = await state.supabase.storage.from('reader-books').download(book.cloudFilePath);
+    if (error) throw error;
+    book.fileData = await data.arrayBuffer();
+    await dbPut('books', book, { skipSync:true });
+    return book;
+  }
+
+  async function updateLegacyMigrationUI() {
+    if (!state.cloudUser || !state.legacyDb || state.db === state.legacyDb) {
+      els.legacyMigrationBox?.classList.add('hidden');
+      return;
+    }
+    const migrationKey = `reader-migrated:${location.origin}:${state.cloudUser.id}`;
+    if (localStorage.getItem(migrationKey) === '1') {
+      els.legacyMigrationBox.classList.add('hidden');
+      return;
+    }
+    const counts = {};
+    for (const store of SYNC_STORES) counts[store] = (await dbGetAll(store, state.legacyDb)).length;
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    els.legacyMigrationBox.classList.toggle('hidden', total === 0);
+    els.legacyMigrationText.textContent = `${counts.books} sách · ${counts.annotations} đánh dấu · ${counts.bookmarks} bookmark · ${counts.notebooks} notebook đang chờ chuyển.`;
+  }
+
+  async function queueAllLocalData() {
+    for (const store of SYNC_STORES) {
+      for (const value of await dbGetAll(store)) await queueSyncChange(store, value, 'put', state.db);
+    }
+  }
+
+  async function migrateLegacyData() {
+    if (!state.cloudUser || state.db === state.legacyDb) return;
+    els.migrateLocalBtn.disabled = true;
+    els.migrateLocalBtn.textContent = 'Đang chuyển dữ liệu...';
+    try {
+      for (const store of SYNC_STORES) {
+        const sourceRows = await dbGetAll(store, state.legacyDb);
+        for (const source of sourceRows) {
+          const itemId = recordId(store, source);
+          const target = await dbGet(store, itemId).catch(() => null);
+          if (!target || recordTimestamp(source) > recordTimestamp(target)) {
+            const copy = { ...source };
+            if (store === 'books') delete copy.cloudFilePath;
+            await dbPut(store, copy, { skipSync:true });
+          }
+        }
+      }
+      await queueAllLocalData();
+      localStorage.setItem(`reader-migrated:${location.origin}:${state.cloudUser.id}`, '1');
+      await refreshLibrary();
+      await syncNow();
+      els.legacyMigrationBox.classList.add('hidden');
+      toast('Đã chuyển dữ liệu cũ vào tài khoản');
+    } catch (error) {
+      console.error(error);
+      toast(`Chưa chuyển xong: ${error.message || 'lỗi không xác định'}`, 4200);
+    } finally {
+      els.migrateLocalBtn.disabled = false;
+      els.migrateLocalBtn.textContent = 'Đồng bộ dữ liệu hiện có';
+    }
   }
 
 
@@ -168,10 +653,12 @@
   // ---------- App shell ----------
   async function init() {
     cacheEls();
-    state.db = await openDB();
+    state.legacyDb = await openDB(LEGACY_DB_NAME);
+    state.db = state.legacyDb;
     applyTheme();
     bindUI();
     await refreshLibrary();
+    await initCloud();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('./service-worker.js').catch(() => {});
     }
@@ -191,6 +678,7 @@
 
     els.libraryThemeBtn.addEventListener('click', toggleTheme);
     els.readerThemeBtn.addEventListener('click', toggleTheme);
+    els.accountBtn.addEventListener('click', openAccountModal);
     els.settingsBtn.addEventListener('click', openSettings);
     els.saveSettingsBtn.addEventListener('click', saveSettings);
     els.backBtn.addEventListener('click', closeReader);
@@ -242,6 +730,14 @@
       }
     });
     els.translationNotebookBtn.addEventListener('click', addTranslationToNotebook);
+    els.signInBtn.addEventListener('click', handleSignIn);
+    els.signUpBtn.addEventListener('click', handleSignUp);
+    els.signOutBtn.addEventListener('click', handleSignOut);
+    els.syncNowBtn.addEventListener('click', () => syncNow());
+    els.migrateLocalBtn.addEventListener('click', migrateLegacyData);
+    els.authPassword.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSignIn();
+    });
 
     bindNotebookEditor(els.bookNotebookToolbar, els.notebookEditor, scheduleNotebookSave);
     bindNotebookEditor(els.globalNotebookToolbar, els.globalNotebookEditor, scheduleGlobalNotebookSave);
@@ -264,6 +760,11 @@
     }, true);
     els.pdfReader.addEventListener('wheel', () => hideSelectionTools(), { passive:true });
     els.pdfReader.addEventListener('touchmove', () => hideSelectionTools(), { passive:true });
+    window.addEventListener('online', () => syncNow({ quiet:true }));
+    window.addEventListener('offline', () => state.cloudUser && setSyncStatus('error', 'Đang ngoại tuyến'));
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.cloudUser) syncNow({ quiet:true });
+    });
   }
 
   function isSelectionToolTarget(target) {
@@ -495,8 +996,18 @@
 
   // ---------- Reader lifecycle ----------
   async function openBook(id) {
-    const book = await dbGet('books', id);
+    let book = await dbGet('books', id);
     if (!book) return;
+    if (!book.fileData) {
+      showGlobalLoading(`Đang tải “${book.title}” về thiết bị...`);
+      try {
+        book = await ensureLocalBookFile(book);
+      } catch (error) {
+        hideGlobalLoading();
+        return toast(`Không thể tải sách: ${error.message || 'lỗi không xác định'}`, 4200);
+      }
+      hideGlobalLoading();
+    }
     hideSelectionTools();
     state.currentBook = book;
     state.annotations = await dbGetAllByBook('annotations', id);

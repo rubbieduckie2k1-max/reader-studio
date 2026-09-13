@@ -1,0 +1,8 @@
+{
+  "name": "reader-studio",
+  "version": "1.2.0",
+  "private": true,
+  "scripts": {
+    "start": "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./server.ps1"
+  }
+}

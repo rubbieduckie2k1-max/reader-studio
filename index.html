@@ -18,6 +18,8 @@
           <p>PDF & EPUB · đọc, highlight và ghi chú tại một nơi.</p>
         </div>
         <div class="header-actions">
+          <span id="syncStatus" class="sync-status" title="Trạng thái đồng bộ"><i></i><span>Chỉ lưu trên máy</span></span>
+          <button id="accountBtn" class="secondary-btn account-btn">Đăng nhập</button>
           <button id="libraryThemeBtn" class="icon-btn" title="Đổi giao diện">☾</button>
           <button id="settingsBtn" class="icon-btn" title="Cài đặt">⚙</button>
           <button id="addBookBtn" class="primary-btn">＋ Thêm sách</button>
@@ -201,6 +203,34 @@
     <div id="searchResults" class="search-results"></div>
   </div>
 
+  <div id="authModal" class="modal auth-modal hidden">
+    <div class="modal-header"><strong>Tài khoản & đồng bộ</strong><button class="icon-btn compact modal-close">×</button></div>
+
+    <div id="cloudNotConfigured" class="cloud-notice hidden">
+      <strong>Chưa cấu hình Supabase</strong>
+      <p>Mở file <code>config.js</code>, điền Project URL và Publishable key theo hướng dẫn trong README.</p>
+    </div>
+
+    <div id="signedOutPanel" class="auth-panel hidden">
+      <p class="auth-intro">Đăng nhập cùng một tài khoản trên máy tính và điện thoại để đồng bộ sách, highlight, note, notebook, bookmark và tiến độ đọc.</p>
+      <label>Email cá nhân<input id="authEmail" type="email" autocomplete="email" placeholder="ban@example.com" /></label>
+      <label>Mật khẩu<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Tối thiểu 6 ký tự" /></label>
+      <div id="authMessage" class="auth-message"></div>
+      <div class="modal-actions auth-actions"><button id="signUpBtn" class="secondary-btn">Tạo tài khoản</button><button id="signInBtn" class="primary-btn">Đăng nhập</button></div>
+    </div>
+
+    <div id="signedInPanel" class="auth-panel hidden">
+      <div class="account-summary"><span class="account-avatar">✓</span><div><strong id="accountEmail">—</strong><span>Dữ liệu được tách riêng theo tài khoản này</span></div></div>
+      <div class="sync-summary"><span id="syncDetail">Sẵn sàng đồng bộ</span><button id="syncNowBtn" class="secondary-btn">Đồng bộ ngay</button></div>
+      <div id="legacyMigrationBox" class="migration-box hidden">
+        <strong>Dữ liệu cũ đang nằm trên thiết bị này</strong>
+        <p id="legacyMigrationText">Chuyển sách và ghi chú cũ vào tài khoản để mở được trên điện thoại.</p>
+        <button id="migrateLocalBtn" class="primary-btn">Đồng bộ dữ liệu hiện có</button>
+      </div>
+      <div class="modal-actions"><button id="signOutBtn" class="danger-btn">Đăng xuất</button></div>
+    </div>
+  </div>
+
   <div id="settingsModal" class="modal hidden">
     <div class="modal-header"><strong>Cài đặt</strong><button class="icon-btn compact modal-close">×</button></div>
     <div class="settings-grid">
@@ -213,6 +243,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <script src="config.js"></script>
   <script src="vendor/jszip.min.js"></script>
   <script src="app.js"></script>
 </body>
