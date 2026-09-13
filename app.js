@@ -1315,6 +1315,20 @@
         contents
       };
     });
+    state.rendition.on('touchmove', (event, contents) => {
+      const gesture = state.epubRenditionGesture;
+      if (!gesture || event.touches?.length !== 1) return;
+      const touch = event.touches[0];
+      const dx = touch.clientX - gesture.x;
+      const dy = touch.clientY - gesture.y;
+      const direction = swipeNavigationDirection(dx, dy, 'epub');
+      let selectedText = '';
+      try { selectedText = contents?.window?.getSelection?.()?.toString?.()?.trim() || ''; } catch (_) {}
+      if (!gesture.interactive && !selectedText && Date.now() - gesture.at < 950 && direction) {
+        state.epubRenditionGesture = null;
+        performSwipeNavigation(direction);
+      }
+    });
     state.rendition.on('touchend', (event, contents) => {
       scheduleEpubSelectionCapture(contents, null, 80);
       setTimeout(() => scheduleEpubSelectionCapture(contents, null, 0), 280);
@@ -1556,6 +1570,7 @@
     const now = Date.now();
     if (now - state.lastSwipeAt < 500) return;
     state.lastSwipeAt = now;
+    state.epubRenditionGesture = null;
     hideSelectionTools(true);
     navigate(dir);
   }
@@ -1613,6 +1628,7 @@
     if (!target || state.mobileGestureBound.has(target)) return;
     state.mobileGestureBound.add(target);
     let gesture = null;
+    let pointerGesture = null;
 
     const selectionText = () => {
       try {
@@ -1640,7 +1656,18 @@
     }, { passive:true });
 
     target.addEventListener('touchmove', e => {
-      if (!gesture || gesture.type !== 'pinch' || e.touches.length < 2 || !gesture.startDistance) return;
+      if (!gesture) return;
+      if (gesture.type === 'swipe' && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const direction = swipeNavigationDirection(touch.clientX - gesture.x, touch.clientY - gesture.y);
+        if (!gesture.interactive && !selectionText() && Date.now() - gesture.at < 950 && direction) {
+          e.preventDefault();
+          gesture = null;
+          performSwipeNavigation(direction);
+        }
+        return;
+      }
+      if (gesture.type !== 'pinch' || e.touches.length < 2 || !gesture.startDistance) return;
       e.preventDefault();
       gesture.factor = clamp(touchDistance(e.touches) / gesture.startDistance, .55, 1.8);
       const preview = state.currentBook?.type === 'pdf'
@@ -1689,6 +1716,26 @@
       gesture = null;
       updateZoomIndicators();
     }, { passive:true });
+
+    // Pointer events are a second path for iOS versions that cancel the
+    // original TouchEvent once Safari starts handling the page gesture.
+    target.addEventListener('pointerdown', e => {
+      if (!e.isPrimary || (e.pointerType !== 'touch' && e.pointerType !== 'pen')) return;
+      pointerGesture = { x:e.clientX, y:e.clientY, at:Date.now(), interactive:!!e.target?.closest?.('button,a,input,textarea,[contenteditable="true"],.annotation-rect') };
+    }, { passive:true });
+    target.addEventListener('pointermove', e => {
+      if (!pointerGesture || !e.isPrimary) return;
+      const direction = swipeNavigationDirection(e.clientX - pointerGesture.x, e.clientY - pointerGesture.y);
+      if (!pointerGesture.interactive && !selectionText() && Date.now() - pointerGesture.at < 950 && direction) {
+        e.preventDefault();
+        pointerGesture = null;
+        gesture = null;
+        performSwipeNavigation(direction);
+      }
+    }, { passive:false });
+    const clearPointerGesture = () => { pointerGesture = null; };
+    target.addEventListener('pointerup', clearPointerGesture, { passive:true });
+    target.addEventListener('pointercancel', clearPointerGesture, { passive:true });
   }
 
   function toggleSpread() {
@@ -1841,13 +1888,11 @@
     }
 
     const matches = [];
-    let comparedByPosition = false;
     try {
       for (const contents of state.rendition?.getContents?.() || []) {
         let selectedRange;
         try { selectedRange = contents.range(state.selection.location?.cfi); } catch (_) { continue; }
         if (!selectedRange) continue;
-        comparedByPosition = true;
         for (const ann of sameFormat) {
           try {
             const annotationRange = contents.range(ann.location?.cfi);
@@ -1856,19 +1901,26 @@
         }
       }
     } catch (_) {}
-    if (comparedByPosition) return matches;
+    if (matches.length) return matches;
 
-    // Compatibility fallback for annotations saved by an older app version.
+    // iOS Safari can report a slightly shifted CFI after EPUB text reflows.
+    // Fall back to the selected words, even when a positional comparison ran.
     const selectedText = normalizedSelectionText(state.selection.text);
-    return sameFormat.filter(ann => {
+    const textMatches = sameFormat.filter(ann => {
       const savedText = normalizedSelectionText(ann.text);
       return selectedText && savedText && (savedText.includes(selectedText) || selectedText.includes(savedText));
     });
+    if (!textMatches.length) return [];
+    const smallestLength = Math.min(...textMatches.map(ann => normalizedSelectionText(ann.text).length));
+    return textMatches.filter(ann => normalizedSelectionText(ann.text).length === smallestLength);
   }
 
   async function deleteAnnotationsAtSelection() {
     const matches = annotationsInsideCurrentSelection();
-    if (!matches.length) return toast('Vùng này chưa có highlight hoặc gạch dưới');
+    if (!matches.length) {
+      hideSelectionTools(true);
+      return toast('Đã bỏ vùng chọn · đoạn này chưa có đánh dấu đã lưu', 3200);
+    }
     for (const ann of matches) {
       removeEPUBAnnotation(ann);
       await dbDelete('annotations', ann.id);
