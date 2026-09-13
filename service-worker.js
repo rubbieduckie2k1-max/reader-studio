@@ -1,4 +1,4 @@
-const CACHE = 'reader-studio-v8';
+const CACHE = 'reader-studio-v9';
 const LOCAL = ['./','./index.html','./styles.css','./app.js','./config.js','./vendor/jszip.min.js','./manifest.webmanifest'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(c => c.addAll(LOCAL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(

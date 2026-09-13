@@ -37,6 +37,8 @@
     selectionHoldUntil: 0,
     epubSelectionTimer: null,
     mobileGestureBound: new WeakSet(),
+    epubRenditionGesture: null,
+    lastSwipeAt: 0,
     currentEditingAnnotation: null,
     searchBusy: false,
     renderToken: 0,
@@ -72,7 +74,7 @@
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
-      'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','prevPageBtn','nextPageBtn',
+      'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','mobileSelectionBtn','prevPageBtn','nextPageBtn',
       'footerPrevBtn','footerNextBtn','progressBar','progressText','mobileZoomControls','mobileZoomOutBtn','mobileZoomInBtn','mobileZoomLabel','readerLoading','tocList','bookmarkList','bookmarkCount',
       'notesList','highlightsList','bookNotebookToolbar','notebookEditor','notebookSaveState','selectionToolbar','translationPopover',
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
@@ -724,6 +726,13 @@
       state.selectionHoldUntil = Date.now() + 1200;
     }, { passive:true });
     els.selectionToolbar.addEventListener('click', handleSelectionAction);
+    const openMobileSelectionTools = e => {
+      e.preventDefault();
+      state.selectionHoldUntil = Date.now() + 1400;
+      if (!captureCurrentReaderSelection()) toast('Hãy quét một đoạn chữ trước');
+    };
+    els.mobileSelectionBtn.addEventListener('touchstart', openMobileSelectionTools, { passive:false });
+    els.mobileSelectionBtn.addEventListener('mousedown', openMobileSelectionTools);
 
     els.saveNoteBtn.addEventListener('click', saveNoteFromModal);
     els.deleteAnnotationBtn.addEventListener('click', async () => {
@@ -1291,6 +1300,37 @@
       captureEpubSelection(contents, cfiRange);
     });
 
+    // iPhone Safari can swallow touch events attached directly to the EPUB
+    // iframe. epub.js forwards them through the rendition, so use that path
+    // as the reliable fallback for selection and horizontal page swipes.
+    state.rendition.on('touchstart', (event, contents) => {
+      if (event.touches?.length !== 1) {
+        state.epubRenditionGesture = null;
+        return;
+      }
+      const touch = event.touches[0];
+      state.epubRenditionGesture = {
+        x:touch.clientX, y:touch.clientY, at:Date.now(),
+        interactive:!!event.target?.closest?.('button,a,input,textarea,[contenteditable="true"]'),
+        contents
+      };
+    });
+    state.rendition.on('touchend', (event, contents) => {
+      scheduleEpubSelectionCapture(contents, null, 80);
+      setTimeout(() => scheduleEpubSelectionCapture(contents, null, 0), 280);
+      const gesture = state.epubRenditionGesture;
+      state.epubRenditionGesture = null;
+      if (!gesture || event.touches?.length || !event.changedTouches?.length) return;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - gesture.x;
+      const dy = touch.clientY - gesture.y;
+      let selectedText = '';
+      try { selectedText = contents?.window?.getSelection?.()?.toString?.()?.trim() || ''; } catch (_) {}
+      if (!gesture.interactive && !selectedText && Date.now() - gesture.at < 850 && Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+        performSwipeNavigation(dx < 0 ? 1 : -1);
+      }
+    });
+
     state.rendition.on('relocated', location => {
       updateEPUBProgress(location);
       updateBookmarkButton();
@@ -1333,6 +1373,20 @@
       console.warn('Không thể đọc vùng chọn EPUB', err);
       return false;
     }
+  }
+
+  function captureCurrentReaderSelection() {
+    if (!state.currentBook) return false;
+    if (state.currentBook.type === 'pdf') {
+      handlePDFSelection();
+      return state.selection?.format === 'pdf';
+    }
+    try {
+      for (const contents of state.rendition?.getContents?.() || []) {
+        if (captureEpubSelection(contents)) return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   function bindEpubSelectionDismissal(contents) {
@@ -1497,6 +1551,14 @@
     }
   }
 
+  function performSwipeNavigation(dir) {
+    const now = Date.now();
+    if (now - state.lastSwipeAt < 500) return;
+    state.lastSwipeAt = now;
+    hideSelectionTools(true);
+    navigate(dir);
+  }
+
   function zoomBy(delta) {
     if (!state.currentBook) return;
     if (state.currentBook.type === 'pdf') {
@@ -1609,8 +1671,7 @@
       const shouldNavigate = !gesture.interactive && !selectionText() && elapsed < 850 && Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy) * 1.35;
       gesture = null;
       if (shouldNavigate) {
-        hideSelectionTools(true);
-        navigate(dx < 0 ? 1 : -1);
+        performSwipeNavigation(dx < 0 ? 1 : -1);
       }
     }, { passive:true });
 
@@ -1703,6 +1764,7 @@
     els.selectionToolbar.style.left = `${x}px`;
     els.selectionToolbar.style.top = `${y}px`;
     els.selectionToolbar.classList.remove('hidden');
+    els.mobileSelectionBtn?.classList.add('toolbar-open');
     els.translationPopover.classList.add('hidden');
   }
 
@@ -1719,6 +1781,7 @@
     els.selectionToolbar.classList.add('hidden');
     els.translationPopover.classList.add('hidden');
     state.selection = null;
+    els.mobileSelectionBtn?.classList.remove('toolbar-open');
     if (clearNative) clearNativeSelections();
   }
 
