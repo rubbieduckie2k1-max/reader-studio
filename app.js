@@ -59,6 +59,7 @@
     syncInterval: null,
     applyingRemote: false,
     authSwitching: false,
+    authRecoveryMode: false,
     settings: {
       theme: localStorage.getItem('reader-theme') || 'light',
       sourceLang: localStorage.getItem('reader-source-lang') || 'en',
@@ -80,7 +81,8 @@
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang',
       'saveSettingsBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
-      'signUpBtn','signInBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn','toast'
+      'signUpBtn','signInBtn','forgotPasswordBtn','resetPasswordPanel','resetPasswordIntro','newPassword','confirmNewPassword','resetPasswordMessage',
+      'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn','toast'
     ].forEach(id => els[id] = document.getElementById(id));
   };
 
@@ -228,16 +230,24 @@
       state.supabase = window.supabase.createClient(config.url, config.key, {
         auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
       });
-      const { data, error } = await state.supabase.auth.getSession();
-      if (error) throw error;
-      if (data.session?.user) await activateCloudUser(data.session.user);
-      else updateAccountUI();
       state.supabase.auth.onAuthStateChange((event, session) => {
-        setTimeout(() => {
-          if (session?.user) activateCloudUser(session.user);
-          else if (event === 'SIGNED_OUT') deactivateCloudUser();
+        setTimeout(async () => {
+          if (event === 'PASSWORD_RECOVERY') state.authRecoveryMode = true;
+          if (session?.user) await activateCloudUser(session.user);
+          else if (event === 'SIGNED_OUT') await deactivateCloudUser();
+          if (event === 'PASSWORD_RECOVERY') showPasswordResetPanel();
         }, 0);
       });
+      const { data, error } = await state.supabase.auth.getSession();
+      if (error) throw error;
+      if (data.session?.user) {
+        await activateCloudUser(data.session.user);
+        if (isPasswordRecoveryUrl()) {
+          state.authRecoveryMode = true;
+          showPasswordResetPanel();
+        }
+      }
+      else updateAccountUI();
       state.syncInterval = setInterval(() => {
         if (document.visibilityState === 'visible' && state.cloudUser && navigator.onLine) syncNow({ quiet:true });
       }, 45000);
@@ -291,9 +301,11 @@
 
   function updateAccountUI(errorMessage = '') {
     if (!els.accountBtn) return;
+    const recovering = state.cloudConfigured && state.authRecoveryMode;
     els.cloudNotConfigured.classList.toggle('hidden', state.cloudConfigured);
-    els.signedOutPanel.classList.toggle('hidden', !state.cloudConfigured || !!state.cloudUser);
-    els.signedInPanel.classList.toggle('hidden', !state.cloudUser);
+    els.signedOutPanel.classList.toggle('hidden', !state.cloudConfigured || !!state.cloudUser || recovering);
+    els.signedInPanel.classList.toggle('hidden', !state.cloudUser || recovering);
+    els.resetPasswordPanel.classList.toggle('hidden', !recovering);
     els.accountBtn.textContent = state.cloudUser ? 'Tài khoản' : 'Đăng nhập';
     if (state.cloudUser) {
       els.accountEmail.textContent = state.cloudUser.email || 'Tài khoản Reader Studio';
@@ -318,8 +330,92 @@
     if (/invalid login credentials/i.test(message)) return 'Email hoặc mật khẩu chưa đúng.';
     if (/email not confirmed/i.test(message)) return 'Bạn cần xác nhận email trước khi đăng nhập.';
     if (/user already registered/i.test(message)) return 'Email này đã có tài khoản. Hãy bấm Đăng nhập.';
+    if (/email rate limit exceeded|rate limit.*email/i.test(message)) return 'Bạn đã yêu cầu quá nhiều email. Hãy chờ khoảng 1 giờ rồi thử lại một lần.';
+    if (/same password|different from the old/i.test(message)) return 'Mật khẩu mới cần khác mật khẩu cũ.';
+    if (/session.*missing|invalid.*token|expired/i.test(message)) return 'Liên kết đã hết hạn. Hãy yêu cầu một email khôi phục mới.';
     if (/password/i.test(message) && /least|short/i.test(message)) return 'Mật khẩu cần có ít nhất 6 ký tự.';
     return message;
+  }
+
+  function isPasswordRecoveryUrl() {
+    const params = new URLSearchParams(location.search);
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    return params.get('reset') === 'password' || params.get('type') === 'recovery' || hash.get('type') === 'recovery';
+  }
+
+  function passwordRecoveryRedirect() {
+    const url = new URL(location.href);
+    return `${url.origin}${url.pathname}`;
+  }
+
+  function clearPasswordRecoveryUrl() {
+    const url = new URL(location.href);
+    ['reset', 'code', 'type', 'token', 'token_hash'].forEach(key => url.searchParams.delete(key));
+    url.hash = '';
+    history.replaceState({}, '', `${url.pathname}${url.search}`);
+  }
+
+  function showPasswordResetPanel() {
+    state.authRecoveryMode = true;
+    els.newPassword.value = '';
+    els.confirmNewPassword.value = '';
+    els.resetPasswordMessage.textContent = '';
+    els.resetPasswordIntro.textContent = state.cloudUser?.email
+      ? `Nhập mật khẩu mới cho ${state.cloudUser.email}. Sách và ghi chú của bạn vẫn được giữ nguyên.`
+      : 'Nhập mật khẩu mới cho tài khoản Reader Studio của bạn.';
+    updateAccountUI();
+    openModal(els.authModal);
+    setTimeout(() => els.newPassword.focus(), 80);
+  }
+
+  function cancelPasswordReset() {
+    state.authRecoveryMode = false;
+    clearPasswordRecoveryUrl();
+    updateAccountUI();
+    closeModals();
+  }
+
+  async function requestPasswordRecovery() {
+    const email = els.authEmail.value.trim();
+    if (!email) {
+      els.authMessage.textContent = 'Hãy nhập email của tài khoản trước.';
+      els.authEmail.focus();
+      return;
+    }
+    els.forgotPasswordBtn.disabled = true;
+    els.authMessage.textContent = 'Đang gửi email khôi phục...';
+    try {
+      const { error } = await state.supabase.auth.resetPasswordForEmail(email, { redirectTo:passwordRecoveryRedirect() });
+      if (error) throw error;
+      els.authMessage.textContent = 'Đã gửi email. Hãy mở liên kết trong email để đặt mật khẩu mới.';
+    } catch (error) {
+      els.authMessage.textContent = friendlyAuthError(error);
+    } finally {
+      els.forgotPasswordBtn.disabled = false;
+    }
+  }
+
+  async function saveNewPassword() {
+    const password = els.newPassword.value;
+    const confirmation = els.confirmNewPassword.value;
+    if (password.length < 6) return (els.resetPasswordMessage.textContent = 'Mật khẩu mới cần có ít nhất 6 ký tự.');
+    if (password !== confirmation) return (els.resetPasswordMessage.textContent = 'Hai lần nhập mật khẩu chưa giống nhau.');
+    if (!state.supabase || !state.cloudUser) return (els.resetPasswordMessage.textContent = 'Phiên khôi phục đã hết hạn. Hãy yêu cầu một email mới.');
+    els.saveNewPasswordBtn.disabled = true;
+    els.resetPasswordMessage.textContent = 'Đang lưu mật khẩu mới...';
+    try {
+      const { error } = await state.supabase.auth.updateUser({ password });
+      if (error) throw error;
+      state.authRecoveryMode = false;
+      clearPasswordRecoveryUrl();
+      updateAccountUI();
+      closeModals();
+      toast('Đã đổi mật khẩu · dữ liệu được giữ nguyên', 3200);
+    } catch (error) {
+      els.resetPasswordMessage.textContent = friendlyAuthError(error);
+    } finally {
+      els.saveNewPasswordBtn.disabled = false;
+    }
   }
 
   async function handleSignIn() {
@@ -758,12 +854,19 @@
     els.translationNotebookBtn.addEventListener('click', addTranslationToNotebook);
     els.signInBtn.addEventListener('click', handleSignIn);
     els.signUpBtn.addEventListener('click', handleSignUp);
+    els.forgotPasswordBtn.addEventListener('click', requestPasswordRecovery);
+    els.changePasswordBtn.addEventListener('click', showPasswordResetPanel);
+    els.cancelResetPasswordBtn.addEventListener('click', cancelPasswordReset);
+    els.saveNewPasswordBtn.addEventListener('click', saveNewPassword);
     els.signOutBtn.addEventListener('click', handleSignOut);
     els.syncNowBtn.addEventListener('click', () => syncNow());
     els.migrateLocalBtn.addEventListener('click', migrateLegacyData);
     els.authPassword.addEventListener('keydown', e => {
       if (e.key === 'Enter') handleSignIn();
     });
+    [els.newPassword, els.confirmNewPassword].forEach(input => input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') saveNewPassword();
+    }));
 
     bindNotebookEditor(els.bookNotebookToolbar, els.notebookEditor, scheduleNotebookSave);
     bindNotebookEditor(els.globalNotebookToolbar, els.globalNotebookEditor, scheduleGlobalNotebookSave);

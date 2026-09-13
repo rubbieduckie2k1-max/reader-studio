@@ -222,8 +222,17 @@
       <p class="auth-intro">Đăng nhập cùng một tài khoản trên máy tính và điện thoại để đồng bộ sách, highlight, note, notebook, bookmark và tiến độ đọc.</p>
       <label>Email cá nhân<input id="authEmail" type="email" autocomplete="email" placeholder="ban@example.com" /></label>
       <label>Mật khẩu<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Tối thiểu 6 ký tự" /></label>
+      <button id="forgotPasswordBtn" class="auth-link-btn" type="button">Quên mật khẩu?</button>
       <div id="authMessage" class="auth-message"></div>
       <div class="modal-actions auth-actions"><button id="signUpBtn" class="secondary-btn">Tạo tài khoản</button><button id="signInBtn" class="primary-btn">Đăng nhập</button></div>
+    </div>
+
+    <div id="resetPasswordPanel" class="auth-panel hidden">
+      <p id="resetPasswordIntro" class="auth-intro">Nhập mật khẩu mới cho tài khoản Reader Studio của bạn.</p>
+      <label>Mật khẩu mới<input id="newPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Tối thiểu 6 ký tự" /></label>
+      <label>Nhập lại mật khẩu<input id="confirmNewPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Nhập lại mật khẩu mới" /></label>
+      <div id="resetPasswordMessage" class="auth-message"></div>
+      <div class="modal-actions auth-actions"><button id="cancelResetPasswordBtn" class="secondary-btn" type="button">Để sau</button><button id="saveNewPasswordBtn" class="primary-btn" type="button">Lưu mật khẩu mới</button></div>
     </div>
 
     <div id="signedInPanel" class="auth-panel hidden">
@@ -234,7 +243,7 @@
         <p id="legacyMigrationText">Chuyển sách và ghi chú cũ vào tài khoản để mở được trên điện thoại.</p>
         <button id="migrateLocalBtn" class="primary-btn">Đồng bộ dữ liệu hiện có</button>
       </div>
-      <div class="modal-actions"><button id="signOutBtn" class="danger-btn">Đăng xuất</button></div>
+      <div class="modal-actions account-actions"><button id="changePasswordBtn" class="secondary-btn">Đổi mật khẩu</button><button id="signOutBtn" class="danger-btn">Đăng xuất</button></div>
     </div>
   </div>
 

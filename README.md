@@ -1,8 +1,8 @@
-# Reader Studio 1.2.2
+# Reader Studio 1.2.6
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.2.2 sửa thao tác chọn chữ trong EPUB trên iPhone/iPad; thêm vuốt trái/phải để chuyển trang, chụm/mở hai ngón để đổi cỡ đọc và nút −/+ ở thanh dưới màn hình điện thoại.
+Phiên bản 1.2.6 bổ sung luồng **Quên mật khẩu → nhận email → đặt mật khẩu mới**. Khi vẫn còn đăng nhập trên một thiết bị, bạn cũng có thể mở **Tài khoản → Đổi mật khẩu** mà không cần gửi email. Việc đổi mật khẩu không xóa sách, highlight, note, notebook, bookmark hoặc tiến độ đọc.
 
 ## Cách chạy trên Windows
 
@@ -45,7 +45,7 @@ File SQL bật Row Level Security: người dùng chỉ được đọc và sử
 1. Trong Supabase, mở khu vực **Project Settings / API Keys**.
 2. Copy **Project URL**.
 3. Copy **Publishable key**. Nếu giao diện cũ chưa có Publishable key, dùng `anon public` key.
-4. Mở `config.js` bằng Notepad và điền:
+4. Nếu chưa có `config.js`, tạo một bản sao của `config.example.js`, đổi tên thành `config.js`, rồi mở bằng Notepad và điền:
 
 ```js
 window.READER_STUDIO_CONFIG = {
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.2.2 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.2.6 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Upload toàn bộ nội dung của thư mục Reader Studio 1.2.2 vào root của repository GitHub, gồm cả `vendor/jszip.min.js` và `config.js` đã điền.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.2.6 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
@@ -81,6 +81,13 @@ Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về
 
 - Android/Chrome: menu `⋮` → **Thêm vào màn hình chính** hoặc **Cài đặt ứng dụng**.
 - iPhone/Safari: nút **Chia sẻ** → **Thêm vào Màn hình chính**.
+
+## Quên hoặc đổi mật khẩu
+
+- Nếu vẫn còn đăng nhập trên máy tính: mở **Tài khoản → Đổi mật khẩu**, nhập mật khẩu mới hai lần rồi lưu. Cách này không cần email.
+- Nếu đã đăng xuất: bấm **Đăng nhập**, nhập email, chọn **Quên mật khẩu?**, rồi mở liên kết Supabase gửi tới email. Reader Studio sẽ tự mở màn hình đặt mật khẩu mới.
+- Supabase giới hạn số email khôi phục. Nếu thấy `email rate limit exceeded`, ngừng gửi lại và chờ khoảng một giờ.
+- Đổi mật khẩu không thay đổi tài khoản nên toàn bộ sách và ghi chú vẫn được giữ nguyên.
 
 ## Cơ chế đồng bộ
 
