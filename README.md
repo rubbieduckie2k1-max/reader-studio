@@ -1,6 +1,8 @@
-# Reader Studio 1.2.0
+# Reader Studio 1.2.2
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
+
+Phiên bản 1.2.2 sửa thao tác chọn chữ trong EPUB trên iPhone/iPad; thêm vuốt trái/phải để chuyển trang, chụm/mở hai ngón để đổi cỡ đọc và nút −/+ ở thanh dưới màn hình điện thoại.
 
 ## Cách chạy trên Windows
 
@@ -58,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.2.0 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.2.2 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -68,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Upload toàn bộ nội dung của thư mục Reader Studio 1.2.0 vào root của repository GitHub, gồm cả `vendor/jszip.min.js` và `config.js` đã điền.
+1. Upload toàn bộ nội dung của thư mục Reader Studio 1.2.2 vào root của repository GitHub, gồm cả `vendor/jszip.min.js` và `config.js` đã điền.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.

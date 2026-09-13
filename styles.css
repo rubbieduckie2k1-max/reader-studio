@@ -220,6 +220,10 @@ body.dark .annotation-card:hover { filter:brightness(1.08); }
 .save-state { padding:6px 12px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; text-align:right; }
 
 .reader-footer { display:flex; align-items:center; justify-content:center; gap:12px; border-top:1px solid var(--line); background:var(--surface); }
+.mobile-zoom-controls { display:none; align-items:center; gap:2px; padding:2px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+.mobile-zoom-controls button { width:28px; height:28px; border-radius:8px; font-size:17px; line-height:1; }
+.mobile-zoom-controls button:active { background:var(--surface-3); }
+.mobile-zoom-controls span { min-width:38px; text-align:center; color:var(--muted); font-size:10px; font-weight:700; }
 .reading-place-controls { display:flex; align-items:center; gap:4px; }
 #savePlaceBtn { display:flex; align-items:center; gap:6px; }
 #savePlaceBtn > span:first-child { color:var(--accent); font-size:10px; }
@@ -318,6 +322,7 @@ body.dark .cloud-notice { background:#39331f; border-color:#665a2f; color:#f0dda
   .search-box { min-width:0; width:100%; }
   .book-grid { grid-template-columns:repeat(2, minmax(0,1fr)); gap:22px 14px; }
   .reader-layout, .reader-layout.left-collapsed, .reader-layout.right-collapsed, .reader-layout.left-collapsed.right-collapsed { display:block; position:relative; }
+  .reader-view { grid-template-rows:58px 1fr 44px; }
   .sidebar { position:absolute; top:0; bottom:0; z-index:30; width:min(84vw,320px); transition:transform .2s ease; box-shadow:var(--shadow); }
   .left-sidebar { left:0; transform:translateX(0); }
   .right-sidebar { right:0; transform:translateX(0); }
@@ -333,5 +338,23 @@ body.dark .cloud-notice { background:#39331f; border-color:#665a2f; color:#f0dda
   #readerThemeBtn, #fullscreenBtn { display:none; }
   .pdf-reader, .epub-reader { padding-left:18px; padding-right:18px; }
   .edge-nav { display:none; }
+  .reader-footer { gap:5px; padding:0 6px; }
+  .reader-footer > .icon-btn { flex:0 0 auto; }
+  .progress-wrap { width:auto; min-width:70px; flex:1; gap:5px; }
+  .progress-wrap > span { width:30px; }
+  .mobile-zoom-controls { display:flex; flex:0 0 auto; }
+  .selection-toolbar {
+    left:50% !important;
+    top:auto !important;
+    bottom:max(76px, calc(env(safe-area-inset-bottom) + 56px));
+    max-width:calc(100vw - 20px);
+    overflow-x:auto;
+    transform:translateX(-50%);
+    scrollbar-width:none;
+    touch-action:manipulation;
+  }
+  .selection-toolbar::-webkit-scrollbar { display:none; }
+  .selection-toolbar button { min-width:38px; height:38px; font-size:12px; }
+  .color-dot { width:27px !important; height:27px !important; min-width:27px !important; }
 }
 .icon-btn.active { background:var(--accent-soft); border-color:color-mix(in srgb, var(--accent) 35%, var(--line)); color:var(--accent); }
