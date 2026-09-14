@@ -1,5 +1,5 @@
-const CACHE = 'reader-studio-v14';
-const LOCAL = ['./','./index.html','./styles.css?v=1.2.8','./app.js?v=1.2.8','./config.js?v=1.2.8','./vendor/jszip.min.js','./manifest.webmanifest?v=1.2.8'];
+const CACHE = 'reader-studio-v15';
+const LOCAL = ['./','./index.html','./styles.css?v=1.2.9','./app.js?v=1.2.9','./config.js?v=1.2.9','./vendor/jszip.min.js','./manifest.webmanifest?v=1.2.9'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(c => c.addAll(LOCAL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(
   caches.keys()
@@ -9,6 +9,9 @@ self.addEventListener('activate', event => event.waitUntil(
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  // Never cache Supabase, translation services, CDN responses, or any other
+  // cross-origin request. Cloud data must always reflect the latest version.
+  if (url.origin !== self.location.origin) return;
   const freshFiles = ['/index.html', '/app.js', '/styles.css', '/config.js'];
   if (event.request.mode === 'navigate' || (url.origin === self.location.origin && freshFiles.some(name => url.pathname.endsWith(name)))) {
     event.respondWith(fetch(event.request).then(res => {

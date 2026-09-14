@@ -183,6 +183,21 @@
     return { url, key, configured: /^https?:\/\//.test(url) && key.length > 20 && !placeholder.test(`${url} ${key}`) };
   }
 
+  function freshCloudFetch(input, init = {}) {
+    const method = String(init.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    if (method !== 'GET') return fetch(input, init);
+
+    // Older Reader Studio service workers cached Supabase GET responses. Add a
+    // unique query value so an already-installed old worker cannot return a
+    // stale list while the fixed worker is taking control of the page.
+    const originalUrl = input instanceof Request ? input.url : String(input);
+    const url = new URL(originalUrl, location.href);
+    url.searchParams.set('_reader_studio_fresh', `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const requestInit = { ...init, cache:'no-store' };
+    if (input instanceof Request) return fetch(new Request(url.toString(), input), requestInit);
+    return fetch(url.toString(), requestInit);
+  }
+
   function userDbName(userId) {
     return `ReaderStudioDB-user-${userId}`;
   }
@@ -228,7 +243,8 @@
       }
       if (!window.supabase?.createClient) throw new Error('Không tải được thư viện Supabase.');
       state.supabase = window.supabase.createClient(config.url, config.key, {
-        auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+        auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true },
+        global: { fetch:freshCloudFetch }
       });
       state.supabase.auth.onAuthStateChange((event, session) => {
         setTimeout(async () => {
@@ -550,7 +566,9 @@
     const pageSize = 500;
     for (let from = 0; ; from += pageSize) {
       const { data, error } = await state.supabase.from('reader_records')
-        .select('*').eq('user_id', state.cloudUser.id).range(from, from + pageSize - 1);
+        .select('*').eq('user_id', state.cloudUser.id)
+        .order('store', { ascending:true }).order('item_id', { ascending:true })
+        .range(from, from + pageSize - 1);
       if (error) throw error;
       rows.push(...(data || []));
       if (!data || data.length < pageSize) break;
@@ -613,6 +631,52 @@
     for (const cloud of remote.values()) await applyRemoteRecord(cloud);
   }
 
+  async function verifyCloudMirror() {
+    const remoteRows = await fetchRemoteRecords();
+    const remote = new Map(remoteRows.map(row => [`${row.store}:${row.item_id}`, row]));
+    const missing = [];
+    for (const store of SYNC_STORES) {
+      for (const value of await dbGetAll(store)) {
+        const itemId = recordId(store, value);
+        const cloud = remote.get(`${store}:${itemId}`);
+        if (!cloud || cloud.deleted || Number(cloud.updated_at || 0) < recordTimestamp(value)) {
+          missing.push(`${store}:${itemId}`);
+        }
+      }
+    }
+    const queued = await dbGetAll('syncQueue');
+    if (missing.length || queued.length) {
+      throw new Error(`Cloud còn thiếu ${missing.length || queued.length} mục. Hãy bấm Đồng bộ ngay lần nữa.`);
+    }
+  }
+
+  function recordsSignature(rows) {
+    return rows.map(row => `${row.id || row.bookId}:${recordTimestamp(row)}:${row.type || ''}:${row.color || ''}`)
+      .sort().join('|');
+  }
+
+  async function refreshOpenReaderAfterSync() {
+    if (!state.currentBook) return;
+    const bookId = state.currentBook.id;
+    const nextAnnotations = await dbGetAllByBook('annotations', bookId);
+    const nextBookmarks = await dbGetAllByBook('bookmarks', bookId);
+    const annotationsChanged = recordsSignature(nextAnnotations) !== recordsSignature(state.annotations);
+    const bookmarksChanged = recordsSignature(nextBookmarks) !== recordsSignature(state.bookmarks);
+    if (annotationsChanged) {
+      const previous = state.annotations;
+      if (state.currentBook.type === 'epub') previous.forEach(removeEPUBAnnotation);
+      state.annotations = nextAnnotations;
+      if (state.currentBook.type === 'epub') state.annotations.forEach(applyEPUBAnnotation);
+      else await renderPDFSpread();
+      renderAnnotationPanels();
+    }
+    if (bookmarksChanged) {
+      state.bookmarks = nextBookmarks;
+      renderBookmarks();
+      updateBookmarkButton();
+    }
+  }
+
   async function runQueuedSync() {
     if (state.syncing || !state.cloudUser || !navigator.onLine) return scheduleCloudFlush(1800);
     state.syncing = true;
@@ -644,8 +708,10 @@
       await flushSyncQueue();
       await reconcileCloud();
       await flushSyncQueue();
+      if (!options.quiet) await verifyCloudMirror();
       state.lastSyncAt = Date.now();
       await refreshLibrary();
+      await refreshOpenReaderAfterSync();
       setSyncStatus('online', 'Đã đồng bộ');
       if (!options.quiet) toast('Đã đồng bộ xong');
     } catch (error) {
@@ -759,10 +825,10 @@
     applyTheme();
     bindUI();
     await refreshLibrary();
-    await initCloud();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('./service-worker.js?v=1.2.8', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.2.9', { updateViaCache:'none' }).catch(() => {});
     }
+    await initCloud();
   }
 
   function bindUI() {
