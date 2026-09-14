@@ -1,5 +1,5 @@
-const CACHE = 'reader-studio-v15';
-const LOCAL = ['./','./index.html','./styles.css?v=1.2.9','./app.js?v=1.2.9','./config.js?v=1.2.9','./vendor/jszip.min.js','./manifest.webmanifest?v=1.2.9'];
+const CACHE = 'reader-studio-v16';
+const LOCAL = ['./','./index.html','./styles.css?v=1.2.10','./app.js?v=1.2.10','./config.js?v=1.2.10','./vendor/jszip.min.js','./manifest.webmanifest?v=1.2.10'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(c => c.addAll(LOCAL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(
   caches.keys()

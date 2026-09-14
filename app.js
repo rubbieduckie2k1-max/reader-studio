@@ -184,18 +184,15 @@
   }
 
   function freshCloudFetch(input, init = {}) {
-    const method = String(init.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
-    if (method !== 'GET') return fetch(input, init);
+    // Do not let the browser HTTP cache reuse a cloud response. The service
+    // worker separately ignores every cross-origin request.
+    return fetch(input, { ...init, cache:'no-store' });
+  }
 
-    // Older Reader Studio service workers cached Supabase GET responses. Add a
-    // unique query value so an already-installed old worker cannot return a
-    // stale list while the fixed worker is taking control of the page.
-    const originalUrl = input instanceof Request ? input.url : String(input);
-    const url = new URL(originalUrl, location.href);
-    url.searchParams.set('_reader_studio_fresh', `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    const requestInit = { ...init, cache:'no-store' };
-    if (input instanceof Request) return fetch(new Request(url.toString(), input), requestInit);
-    return fetch(url.toString(), requestInit);
+  async function clearLegacyCloudCache() {
+    if (!('caches' in window)) return;
+    // v14 was the version that accidentally cached Supabase GET responses.
+    await caches.delete('reader-studio-v14').catch(() => {});
   }
 
   function userDbName(userId) {
@@ -825,8 +822,9 @@
     applyTheme();
     bindUI();
     await refreshLibrary();
+    await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.2.9', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.2.10', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
