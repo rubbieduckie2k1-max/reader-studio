@@ -1,8 +1,8 @@
-# Reader Studio 1.2.7
+# Reader Studio 1.2.8
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.2.7 tối ưu bố cục điện thoại: nút **Đánh dấu** và phần trăm zoom nằm trong hàng công cụ riêng ở phía trên, không che chữ trong sách; cụm chuyển trang được đặt dọc bên phải. Bản này vẫn giữ luồng **Quên mật khẩu → nhận email → đặt mật khẩu mới** và nút **Tài khoản → Đổi mật khẩu**.
+Phiên bản 1.2.8 khắc phục Safari giữ file giao diện cũ sau khi GitHub Pages đã cập nhật. Các file giao diện được gắn cùng mã phiên bản và service worker luôn kiểm tra bản mới, tránh tình trạng trang HTML mới bị ghép với CSS/JavaScript cũ. Bố cục điện thoại vẫn giữ **Đánh dấu + zoom ở trên** và **chuyển trang dọc bên phải**.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.2.7 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.2.8 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.2.7 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.2.8 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.

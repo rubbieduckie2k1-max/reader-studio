@@ -761,7 +761,7 @@
     await refreshLibrary();
     await initCloud();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      navigator.serviceWorker.register('./service-worker.js?v=1.2.8', { updateViaCache:'none' }).catch(() => {});
     }
   }
 
