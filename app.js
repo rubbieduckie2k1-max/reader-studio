@@ -81,7 +81,7 @@
   const els = {};
   const cacheEls = () => {
     [
-      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar',
+      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','libraryHero','libraryResultCount',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
       'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
@@ -839,7 +839,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.4.0', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.4.1', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -859,6 +859,7 @@
       if (bookId) await deleteBook(bookId);
     });
     els.bookCreateCollectionBtn.addEventListener('click', () => openCollectionModal());
+    $('[data-create-collection-main]')?.addEventListener('click', () => openCollectionModal());
     els.saveCollectionBtn.addEventListener('click', saveCollectionFromModal);
     els.deleteCollectionBtn.addEventListener('click', deleteCurrentCollection);
     els.collectionNameInput.addEventListener('keydown', e => {
@@ -1055,7 +1056,7 @@
       bookIds:[...new Set(Array.isArray(item.bookIds) ? item.bookIds.map(String) : [])],
       createdAt:Number(item.createdAt || Date.now())
     }));
-    if (!['all','unfiled'].includes(state.activeCollectionId)
+    if (!['all','unfiled','reading','unread'].includes(state.activeCollectionId)
       && !state.collections.some(item => item.id === state.activeCollectionId)) state.activeCollectionId = 'all';
   }
 
@@ -1079,20 +1080,56 @@
   function renderCollectionsBar() {
     const assigned = new Set(state.collections.flatMap(item => item.bookIds));
     const unfiledCount = state.books.filter(book => !assigned.has(book.id)).length;
+    const readingCount = state.books.filter(book => Number(book.progress || 0) > 0 && Number(book.progress || 0) < 100).length;
+    const unreadCount = state.books.filter(book => Number(book.progress || 0) <= 0).length;
     const filter = (id, label, count) => `<button class="collection-pill${state.activeCollectionId === id ? ' active' : ''}" data-collection-filter="${escapeHTML(id)}"><span>${escapeHTML(label)}</span><b>${count}</b></button>`;
     els.collectionsBar.innerHTML = [
-      filter('all', 'Tất cả sách', state.books.length),
       filter('unfiled', 'Chưa phân nhóm', unfiledCount),
       ...state.collections.map(item => `<span class="collection-pill-wrap">${filter(item.id, item.name, collectionCount(item))}<button class="collection-edit" data-edit-collection="${escapeHTML(item.id)}" title="Đổi tên hoặc xóa nhóm">•••</button></span>`),
       '<button class="collection-create" data-create-collection>＋ Tạo reading list</button>'
     ].join('');
-    $$('[data-collection-filter]', els.collectionsBar).forEach(button => button.addEventListener('click', () => {
-      state.activeCollectionId = button.dataset.collectionFilter;
-      els.libraryView.classList.remove('library-sidebar-mobile-open');
-      renderLibrary();
-    }));
+    els.collectionsChips.innerHTML = [
+      filter('all', 'Tất cả sách', state.books.length),
+      filter('reading', 'Đang đọc', readingCount),
+      filter('unread', 'Muốn đọc', unreadCount),
+      ...state.collections.map(item => filter(item.id, item.name, collectionCount(item))),
+      '<button class="collection-create" data-create-collection>＋ Tạo reading list</button>'
+    ].join('');
+    [els.collectionsBar, els.collectionsChips].forEach(container => {
+      $$('[data-collection-filter]', container).forEach(button => button.addEventListener('click', () => {
+        state.activeCollectionId = button.dataset.collectionFilter;
+        els.libraryView.classList.remove('library-sidebar-mobile-open');
+        els.libraryBooksPanel.classList.remove('hidden');
+        els.globalNotebookPanel.classList.add('hidden');
+        $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
+        if (state.globalNotebookLoaded) saveGlobalNotebook().catch(() => {});
+        renderLibrary();
+      }));
+      $('[data-create-collection]', container)?.addEventListener('click', () => openCollectionModal());
+    });
     $$('[data-edit-collection]', els.collectionsBar).forEach(button => button.addEventListener('click', () => openCollectionModal(button.dataset.editCollection)));
-    $('[data-create-collection]', els.collectionsBar)?.addEventListener('click', () => openCollectionModal());
+  }
+
+  function renderLibraryHero() {
+    const book = state.books.find(item => Number(item.progress || 0) > 0 && Number(item.progress || 0) < 100) || state.books[0];
+    if (!book) {
+      els.libraryHero.classList.add('hidden');
+      els.libraryHero.innerHTML = '';
+      return;
+    }
+    const progress = Math.round(book.progress || 0);
+    const cover = book.cover
+      ? `<img src="${book.cover}" alt="" />`
+      : `<div class="hero-cover-fallback"><small>${escapeHTML(book.author || 'Reader Studio')}</small><strong>${escapeHTML(book.title)}</strong><span>${book.type.toUpperCase()}</span></div>`;
+    els.libraryHero.innerHTML = `<div class="library-hero-copy">
+        <div class="library-hero-eyebrow">TIẾP TỤC ĐỌC</div>
+        <h2>${escapeHTML(book.title)}</h2>
+        <p>${escapeHTML(book.author || 'Không rõ tác giả')} · Tiếp tục từ vị trí bạn đã dừng lại.</p>
+        <div class="library-hero-actions"><button class="hero-continue" data-hero-open="${escapeHTML(book.id)}">› <span>Đọc tiếp</span></button><b>${progress}% đã đọc</b></div>
+      </div>
+      <div class="library-hero-stage"><div class="library-hero-cover">${cover}</div><div class="hero-progress-card"><span>Tiến độ</span><b>${progress}%</b><i><em style="width:${progress}%"></em></i></div></div>`;
+    els.libraryHero.classList.remove('hidden');
+    $('[data-hero-open]', els.libraryHero)?.addEventListener('click', () => openBook(book.id));
   }
 
   function renderLibrary() {
@@ -1104,11 +1141,16 @@
       const matchesFilter = filter === 'all' || book.type === filter;
       const matchesQuery = !query || `${book.title} ${book.author || ''}`.toLowerCase().includes(query);
       const matchesCollection = state.activeCollectionId === 'all'
-        || (state.activeCollectionId === 'unfiled' ? !assigned.has(book.id) : !!activeCollection?.bookIds.includes(book.id));
+        || (state.activeCollectionId === 'unfiled' ? !assigned.has(book.id)
+          : state.activeCollectionId === 'reading' ? Number(book.progress || 0) > 0 && Number(book.progress || 0) < 100
+          : state.activeCollectionId === 'unread' ? Number(book.progress || 0) <= 0
+          : !!activeCollection?.bookIds.includes(book.id));
       return matchesFilter && matchesQuery && matchesCollection;
     });
 
     renderCollectionsBar();
+    renderLibraryHero();
+    els.libraryResultCount.textContent = `${books.length} cuốn sách`;
     els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query || filter !== 'all');
     els.bookGrid.innerHTML = books.length ? books.map(book => {
       const progress = Math.round(book.progress || 0);
@@ -1290,6 +1332,8 @@
     els.libraryBooksPanel.classList.toggle('hidden', showNotebooks);
     els.globalNotebookPanel.classList.toggle('hidden', !showNotebooks);
     if (!showNotebooks) {
+      state.activeCollectionId = 'all';
+      renderLibrary();
       if (state.globalNotebookLoaded) await saveGlobalNotebook();
       return;
     }
