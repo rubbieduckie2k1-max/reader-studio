@@ -3,7 +3,7 @@
   "short_name": "Reader",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f7f7f5",
-  "theme_color": "#f7f7f5",
+  "background_color": "#FFF9EF",
+  "theme_color": "#FFF9EF",
   "icons": []
 }

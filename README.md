@@ -1,8 +1,8 @@
-# Reader Studio 1.3.0
+# Reader Studio 1.4.0
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.3.0 bổ sung tùy chỉnh ảnh bìa, sửa tên/tác giả, tạo reading list hoặc nhóm sách và thêm sách vào nhiều nhóm. Reading list được lưu local-first và đồng bộ cùng tài khoản mà không cần chạy lại SQL.
+Phiên bản 1.4.0 bổ sung giao diện vintage bookstore, sidebar thư viện Tổng / Nhóm / Note có thể ẩn hoặc hiện và ghi nhớ trạng thái, cùng ba màu highlight tương phản trên nền giấy. Các chức năng tùy chỉnh ảnh bìa, reading list, đồng bộ và ghi chú của bản trước vẫn được giữ nguyên.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.3.0 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.4.0 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.3.0 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.4.0 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
@@ -99,11 +99,13 @@ Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về
 
 ## Chức năng
 
+- Sidebar thư viện gồm **Tổng / Nhóm / Note**. Bấm **‹** để ẩn và nút **›** ở mép trái để mở lại; lựa chọn được ghi nhớ cho lần sau.
+- Trên điện thoại, bấm **☰** để mở sidebar dạng trượt và bấm **×** để đóng.
 - Library: PDF/EPUB, ảnh bìa tùy chỉnh, sửa tên sách/tác giả và tiến độ đọc.
 - Tạo, đổi tên, xóa reading list/nhóm sách; một cuốn sách có thể nằm trong nhiều nhóm.
 - PDF reader: fit width, zoom, 1 trang / 2 trang, fullscreen.
 - EPUB reader: paginated reader, tăng/giảm cỡ chữ, 1/2 trang.
-- Highlight 4 màu, underline, strike marker.
+- Highlight 3 màu vintage (aged gold, tobacco, oxblood), underline và strike marker. Màu tối dùng chữ sáng trong danh sách ghi chú để giữ độ tương phản.
 - Click vào đoạn đã đánh dấu để sửa note hoặc xóa highlight/underline.
 - Reader tự dàn lại trang khi mở hoặc đóng mục lục và bảng ghi chú.
 - Highlight và underline EPUB được khôi phục trực tiếp trên trang khi mở lại sách.

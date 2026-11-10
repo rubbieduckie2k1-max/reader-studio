@@ -9,7 +9,9 @@
   const escapeHTML = (s = '') => s.replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
   const colorMap = {
-    yellow: '#ffd95a',
+    yellow: '#D4BE9D',
+    tobacco: '#8F6448',
+    oxblood: '#67343A',
     green: '#8ed6a5',
     blue: '#81b8ee',
     purple: '#bda0eb'
@@ -59,6 +61,7 @@
     progressSaveTimer: null,
     readerLayoutTimer: null,
     readerResizeObserver: null,
+    librarySidebarCollapsed: localStorage.getItem('reader-library-sidebar-collapsed') === '1',
     supabase: null,
     cloudUser: null,
     cloudConfigured: false,
@@ -79,6 +82,7 @@
   const cacheEls = () => {
     [
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar',
+      'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
       'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
@@ -202,7 +206,7 @@
   async function clearLegacyCloudCache() {
     if (!('caches' in window)) return;
     // v14 was the version that accidentally cached Supabase GET responses.
-    await caches.delete('reader-studio-v14').catch(() => {});
+    await caches.delete('reader-studio-v17').catch(() => {});
   }
 
   function userDbName(userId) {
@@ -830,11 +834,12 @@
     state.legacyDb = await openDB(LEGACY_DB_NAME);
     state.db = state.legacyDb;
     applyTheme();
+    applyLibrarySidebarState();
     bindUI();
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.3.0', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.4.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -872,6 +877,9 @@
     els.settingsBtn.addEventListener('click', openSettings);
     els.saveSettingsBtn.addEventListener('click', saveSettings);
     els.backBtn.addEventListener('click', closeReader);
+    els.librarySidebarHideBtn.addEventListener('click', () => setLibrarySidebar(true));
+    els.librarySidebarShowBtn.addEventListener('click', () => setLibrarySidebar(false));
+    els.librarySidebarMobileBtn.addEventListener('click', toggleLibrarySidebarMobile);
     els.leftSidebarBtn.addEventListener('click', () => toggleSidebar('left'));
     els.rightSidebarBtn.addEventListener('click', () => toggleSidebar('right'));
     $$('[data-close="left"]').forEach(b => b.addEventListener('click', () => setSidebar('left', false)));
@@ -1080,6 +1088,7 @@
     ].join('');
     $$('[data-collection-filter]', els.collectionsBar).forEach(button => button.addEventListener('click', () => {
       state.activeCollectionId = button.dataset.collectionFilter;
+      els.libraryView.classList.remove('library-sidebar-mobile-open');
       renderLibrary();
     }));
     $$('[data-edit-collection]', els.collectionsBar).forEach(button => button.addEventListener('click', () => openCollectionModal(button.dataset.editCollection)));
@@ -1275,6 +1284,7 @@
   }
 
   async function showLibraryPanel(name) {
+    els.libraryView.classList.remove('library-sidebar-mobile-open');
     const showNotebooks = name === 'notebooks';
     $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === name));
     els.libraryBooksPanel.classList.toggle('hidden', showNotebooks);
@@ -1458,8 +1468,8 @@
     els.readerTitle.textContent = book.title;
     els.readerAuthor.textContent = book.author || '';
     els.spreadBtn.classList.toggle('active', state.spread);
-    setSidebar('left', window.innerWidth > 780);
-    setSidebar('right', window.innerWidth > 1100);
+    setSidebar('left', window.innerWidth > 780 && localStorage.getItem('reader-left-sidebar-collapsed') !== '1', false);
+    setSidebar('right', window.innerWidth > 1100 && localStorage.getItem('reader-right-sidebar-collapsed') !== '1', false);
     await loadNotebook();
     renderAnnotationPanels();
     renderBookmarks();
@@ -1850,7 +1860,7 @@
       'font-size': `${state.epubFontSize}%`,
       'line-height': '1.72',
       'color': dark ? '#f4f5f2' : '#151713',
-      'background': dark ? '#242724' : '#ffffff',
+      'background': dark ? '#302622' : '#FFF9EF',
       'padding-left': '2.2rem',
       'padding-right': '2.2rem'
     };
@@ -1858,7 +1868,7 @@
       state.rendition.themes.default({
         body,
         'p': {'line-height':'1.72'},
-        'a': {'color': dark ? '#9bcbb0' : '#2f5f49'}
+        'a': {'color': dark ? '#D4BE9D' : '#67343A'}
       });
       state.rendition.themes.fontSize(`${state.epubFontSize}%`);
     } catch (_) {}
@@ -2177,17 +2187,39 @@
     await dbPut('books', state.currentBook).catch(() => {});
   }
 
+  function applyLibrarySidebarState() {
+    if (!els.libraryView) return;
+    els.libraryView.classList.toggle('library-sidebar-collapsed', state.librarySidebarCollapsed);
+    els.librarySidebarShowBtn?.classList.toggle('hidden', !state.librarySidebarCollapsed);
+    els.librarySidebarHideBtn?.setAttribute('aria-expanded', String(!state.librarySidebarCollapsed));
+    els.librarySidebarShowBtn?.setAttribute('aria-expanded', String(!state.librarySidebarCollapsed));
+  }
+
+  function setLibrarySidebar(collapsed) {
+    state.librarySidebarCollapsed = !!collapsed;
+    localStorage.setItem('reader-library-sidebar-collapsed', collapsed ? '1' : '0');
+    els.libraryView.classList.remove('library-sidebar-mobile-open');
+    applyLibrarySidebarState();
+  }
+
+  function toggleLibrarySidebarMobile() {
+    if (window.innerWidth > 780) return setLibrarySidebar(!state.librarySidebarCollapsed);
+    els.libraryView.classList.toggle('library-sidebar-mobile-open');
+  }
+
   function toggleSidebar(side) {
     const layout = $('.reader-layout');
     const cls = side === 'left' ? 'left-collapsed' : 'right-collapsed';
     layout.classList.toggle(cls);
+    localStorage.setItem(`reader-${side}-sidebar-collapsed`, layout.classList.contains(cls) ? '1' : '0');
     refreshReaderLayout(230);
   }
 
-  function setSidebar(side, open) {
+  function setSidebar(side, open, persist = true) {
     const layout = $('.reader-layout');
     const cls = side === 'left' ? 'left-collapsed' : 'right-collapsed';
     layout.classList.toggle(cls, !open);
+    if (persist) localStorage.setItem(`reader-${side}-sidebar-collapsed`, open ? '0' : '1');
     refreshReaderLayout(230);
   }
 
@@ -2261,8 +2293,8 @@
       }
       return;
     }
-    if (action === 'underline') return addAnnotation('underline', 'blue');
-    if (action === 'strike') return addAnnotation('strike', 'purple');
+    if (action === 'underline') return addAnnotation('underline', 'tobacco');
+    if (action === 'strike') return addAnnotation('strike', 'oxblood');
   }
 
   function normalizedSelectionText(value = '') {
@@ -2384,7 +2416,7 @@
 
   function annotationCardHTML(ann) {
     const loc = ann.format === 'pdf' ? `p. ${ann.location.page}` : 'EPUB';
-    const color = ['yellow','green','blue','purple'].includes(ann.color) ? ann.color : 'yellow';
+    const color = ['yellow','tobacco','oxblood','green','blue','purple'].includes(ann.color) ? ann.color : 'yellow';
     return `<article class="annotation-card color-${color}" data-annotation-id="${ann.id}">
       <div class="ann-top"><span class="ann-type"><i class="ann-swatch" style="background:${colorMap[ann.color] || colorMap.yellow}"></i>${escapeHTML(ann.type)}</span><span class="ann-location">${loc}</span></div>
       <div class="ann-quote">${escapeHTML(ann.text || '')}</div>
