@@ -1,8 +1,8 @@
-# Reader Studio 1.4.1
+# Reader Studio 1.4.2
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.4.1 đưa toàn bộ bố cục Vintage Library từ bản preview vào ứng dụng thật: sidebar tối, thanh thương hiệu, khu vực Tiếp tục đọc, reading list dạng chip và lưới sách dày. Sidebar vẫn có thể ẩn/hiện và ghi nhớ trạng thái; các chức năng tùy chỉnh ảnh bìa, đồng bộ, highlight và ghi chú được giữ nguyên.
+Phiên bản 1.4.2 giữ nguyên bố cục Vintage Library và sửa phần reading list theo đúng dữ liệu người dùng: không còn tự sinh nhóm “Đang đọc”/“Muốn đọc”, nút tạo nhóm chỉ còn ở sidebar, trạng thái lọc cũ tự quay về “Tất cả sách”. Ô tìm kiếm cũng được tách khỏi trường đăng nhập để Chrome không tự điền email/mật khẩu vào đó.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.4.1 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.4.2 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.4.1 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.4.2 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.

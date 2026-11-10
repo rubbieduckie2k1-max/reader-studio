@@ -831,6 +831,11 @@
   // ---------- App shell ----------
   async function init() {
     cacheEls();
+    // Password managers sometimes mistake the first text input on the page for
+    // the account username. Keep library search locked and empty until a real
+    // pointer/keyboard interaction happens.
+    els.librarySearch.value = '';
+    els.librarySearch.readOnly = true;
     state.legacyDb = await openDB(LEGACY_DB_NAME);
     state.db = state.legacyDb;
     applyTheme();
@@ -839,7 +844,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.4.1', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.4.2', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -848,7 +853,23 @@
     els.addBookBtn.addEventListener('click', () => els.bookFileInput.click());
     els.emptyAddBtn.addEventListener('click', () => els.bookFileInput.click());
     els.bookFileInput.addEventListener('change', handleFileInput);
+    const unlockLibrarySearch = () => {
+      const hadCredentialAutofill = /@/.test(els.librarySearch.value);
+      els.librarySearch.readOnly = false;
+      if (hadCredentialAutofill) {
+        els.librarySearch.value = '';
+        renderLibrary();
+      }
+    };
+    els.librarySearch.addEventListener('pointerdown', unlockLibrarySearch);
+    els.librarySearch.addEventListener('keydown', unlockLibrarySearch);
     els.librarySearch.addEventListener('input', renderLibrary);
+    [80, 350, 1200].forEach(delay => setTimeout(() => {
+      if (els.librarySearch.readOnly && els.librarySearch.value) {
+        els.librarySearch.value = '';
+        renderLibrary();
+      }
+    }, delay));
     els.chooseCoverBtn.addEventListener('click', () => els.customCoverInput.click());
     els.customCoverInput.addEventListener('change', handleCustomCoverInput);
     els.restoreCoverBtn.addEventListener('click', restoreOriginalCoverPreview);
@@ -1056,7 +1077,7 @@
       bookIds:[...new Set(Array.isArray(item.bookIds) ? item.bookIds.map(String) : [])],
       createdAt:Number(item.createdAt || Date.now())
     }));
-    if (!['all','unfiled','reading','unread'].includes(state.activeCollectionId)
+    if (!['all','unfiled'].includes(state.activeCollectionId)
       && !state.collections.some(item => item.id === state.activeCollectionId)) state.activeCollectionId = 'all';
   }
 
@@ -1080,8 +1101,6 @@
   function renderCollectionsBar() {
     const assigned = new Set(state.collections.flatMap(item => item.bookIds));
     const unfiledCount = state.books.filter(book => !assigned.has(book.id)).length;
-    const readingCount = state.books.filter(book => Number(book.progress || 0) > 0 && Number(book.progress || 0) < 100).length;
-    const unreadCount = state.books.filter(book => Number(book.progress || 0) <= 0).length;
     const filter = (id, label, count) => `<button class="collection-pill${state.activeCollectionId === id ? ' active' : ''}" data-collection-filter="${escapeHTML(id)}"><span>${escapeHTML(label)}</span><b>${count}</b></button>`;
     els.collectionsBar.innerHTML = [
       filter('unfiled', 'Chưa phân nhóm', unfiledCount),
@@ -1090,10 +1109,7 @@
     ].join('');
     els.collectionsChips.innerHTML = [
       filter('all', 'Tất cả sách', state.books.length),
-      filter('reading', 'Đang đọc', readingCount),
-      filter('unread', 'Muốn đọc', unreadCount),
-      ...state.collections.map(item => filter(item.id, item.name, collectionCount(item))),
-      '<button class="collection-create" data-create-collection>＋ Tạo reading list</button>'
+      ...state.collections.map(item => filter(item.id, item.name, collectionCount(item)))
     ].join('');
     [els.collectionsBar, els.collectionsChips].forEach(container => {
       $$('[data-collection-filter]', container).forEach(button => button.addEventListener('click', () => {
@@ -1142,8 +1158,6 @@
       const matchesQuery = !query || `${book.title} ${book.author || ''}`.toLowerCase().includes(query);
       const matchesCollection = state.activeCollectionId === 'all'
         || (state.activeCollectionId === 'unfiled' ? !assigned.has(book.id)
-          : state.activeCollectionId === 'reading' ? Number(book.progress || 0) > 0 && Number(book.progress || 0) < 100
-          : state.activeCollectionId === 'unread' ? Number(book.progress || 0) <= 0
           : !!activeCollection?.bookIds.includes(book.id));
       return matchesFilter && matchesQuery && matchesCollection;
     });

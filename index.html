@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.4.1" />
-  <link rel="stylesheet" href="styles.css?v=1.4.1" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.4.2" />
+  <link rel="stylesheet" href="styles.css?v=1.4.2" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -26,7 +26,7 @@
         </nav>
         <div class="library-sidebar-label">NHÓM / READING LIST</div>
         <div id="collectionsBar" class="collections-bar" aria-label="Reading list và nhóm sách"></div>
-        <div class="library-sidebar-foot"><span class="sidebar-sync-dot"></span> Reader Studio <span>1.4.1</span></div>
+        <div class="library-sidebar-foot"><span class="sidebar-sync-dot"></span> Reader Studio <span>1.4.2</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -48,7 +48,7 @@
             <div><h1>Thư viện của bạn</h1><p>PDF & EPUB · đọc, highlight và ghi chú tại một nơi.</p></div>
           </div>
           <div class="library-heading-tools">
-            <label class="search-box"><span>⌕</span><input id="librarySearch" type="search" name="reader-library-search" placeholder="Tìm sách, tác giả..." autocomplete="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore="true" /></label>
+            <form class="search-box" role="search" autocomplete="off" onsubmit="return false"><span>⌕</span><input id="librarySearch" type="search" name="book-search-query" placeholder="Tìm sách, tác giả..." autocomplete="new-password" autocapitalize="none" spellcheck="false" aria-autocomplete="none" data-form-type="other" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" readonly /></form>
             <button id="addBookBtn" class="primary-btn">＋ Thêm sách</button>
             <input id="bookFileInput" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" hidden />
           </div>
@@ -250,14 +250,14 @@
       <p>Mở file <code>config.js</code>, điền Project URL và Publishable key theo hướng dẫn trong README.</p>
     </div>
 
-    <div id="signedOutPanel" class="auth-panel hidden">
+    <form id="signedOutPanel" class="auth-panel hidden" autocomplete="on" onsubmit="return false">
       <p class="auth-intro">Đăng nhập cùng một tài khoản trên máy tính và điện thoại để đồng bộ sách, highlight, note, notebook, bookmark và tiến độ đọc.</p>
-      <label>Email cá nhân<input id="authEmail" type="email" autocomplete="email" placeholder="ban@example.com" /></label>
-      <label>Mật khẩu<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Tối thiểu 6 ký tự" /></label>
+      <label>Email cá nhân<input id="authEmail" name="reader-account-email" type="email" autocomplete="username" placeholder="ban@example.com" /></label>
+      <label>Mật khẩu<input id="authPassword" name="reader-account-password" type="password" autocomplete="current-password" minlength="6" placeholder="Tối thiểu 6 ký tự" /></label>
       <button id="forgotPasswordBtn" class="auth-link-btn" type="button">Quên mật khẩu?</button>
       <div id="authMessage" class="auth-message"></div>
-      <div class="modal-actions auth-actions"><button id="signUpBtn" class="secondary-btn">Tạo tài khoản</button><button id="signInBtn" class="primary-btn">Đăng nhập</button></div>
-    </div>
+      <div class="modal-actions auth-actions"><button id="signUpBtn" class="secondary-btn" type="button">Tạo tài khoản</button><button id="signInBtn" class="primary-btn" type="button">Đăng nhập</button></div>
+    </form>
 
     <div id="resetPasswordPanel" class="auth-panel hidden">
       <p id="resetPasswordIntro" class="auth-intro">Nhập mật khẩu mới cho tài khoản Reader Studio của bạn.</p>
@@ -313,14 +313,14 @@
 
   <div id="collectionModal" class="modal collection-modal hidden">
     <div class="modal-header"><strong id="collectionModalTitle">Tạo reading list</strong><button class="icon-btn compact modal-close">×</button></div>
-    <label class="modal-field">Tên nhóm / reading list<input id="collectionNameInput" type="text" maxlength="60" placeholder="Ví dụ: Muốn đọc, Đang đọc, Văn học..." /></label>
+    <label class="modal-field">Tên nhóm / reading list<input id="collectionNameInput" type="text" maxlength="60" placeholder="Ví dụ: Văn học, Essays, Non-fiction..." /></label>
     <div class="modal-actions split-actions"><button id="deleteCollectionBtn" class="danger-btn hidden" type="button">Xóa nhóm</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveCollectionBtn" class="primary-btn" type="button">Lưu nhóm</button></div></div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.4.1"></script>
+  <script src="config.js?v=1.4.2"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.4.1"></script>
+  <script src="app.js?v=1.4.2"></script>
 </body>
 </html>
