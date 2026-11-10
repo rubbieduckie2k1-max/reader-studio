@@ -1,8 +1,8 @@
-# Reader Studio 1.2.10
+# Reader Studio 1.3.0
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.2.10 sửa lỗi hai thiết bị cùng báo **Đã đồng bộ** nhưng vẫn hiển thị danh sách highlight khác nhau. Reader Studio giờ chỉ cache các file giao diện thuộc website, xóa riêng cache cloud lỗi của bản cũ và lấy dữ liệu Supabase mà không thêm tham số lạ vào truy vấn. Bố cục điện thoại vẫn giữ **Đánh dấu + zoom ở trên** và **chuyển trang dọc bên phải**.
+Phiên bản 1.3.0 bổ sung tùy chỉnh ảnh bìa, sửa tên/tác giả, tạo reading list hoặc nhóm sách và thêm sách vào nhiều nhóm. Reading list được lưu local-first và đồng bộ cùng tài khoản mà không cần chạy lại SQL.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.2.10 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.3.0 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.2.10 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.3.0 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
@@ -99,7 +99,8 @@ Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về
 
 ## Chức năng
 
-- Library: PDF/EPUB, cover, tên sách, tác giả, tiến độ đọc.
+- Library: PDF/EPUB, ảnh bìa tùy chỉnh, sửa tên sách/tác giả và tiến độ đọc.
+- Tạo, đổi tên, xóa reading list/nhóm sách; một cuốn sách có thể nằm trong nhiều nhóm.
 - PDF reader: fit width, zoom, 1 trang / 2 trang, fullscreen.
 - EPUB reader: paginated reader, tăng/giảm cỡ chữ, 1/2 trang.
 - Highlight 4 màu, underline, strike marker.
@@ -140,6 +141,5 @@ Dịch nhanh mặc định dùng MyMemory. Chỉ đoạn chữ bạn bấm **D�
 ## Ghi chú kỹ thuật
 
 - PDF có text layer: highlight/search/translate hoạt động trực tiếp.
-- PDF scan chỉ gồm ảnh chưa có OCR tích hợp trong bản này, nên không thể quét chữ cho đến khi file có text layer.
 - EPUB strike được hiển thị bằng một marker đỏ nhẹ để giữ vị trí ổn định trên EPUB reflow.
 - PDF.js và EPUB.js được tải động từ CDN khi cần; vì vậy lần đầu mở từng định dạng cần Internet.

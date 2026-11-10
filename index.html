@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f7f7f5" />
   <title>Reader Studio</title>
-  <link rel="manifest" href="manifest.webmanifest?v=1.2.10" />
-  <link rel="stylesheet" href="styles.css?v=1.2.10" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.3.0" />
+  <link rel="stylesheet" href="styles.css?v=1.3.0" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -37,6 +37,7 @@
           <label class="search-box"><span>⌕</span><input id="librarySearch" placeholder="Tìm sách, tác giả..." /></label>
           <div class="segmented small"><button class="active" data-filter="all">Tất cả</button><button data-filter="pdf">PDF</button><button data-filter="epub">EPUB</button></div>
         </div>
+        <div id="collectionsBar" class="collections-bar" aria-label="Reading list và nhóm sách"></div>
 
         <main>
           <div id="libraryEmpty" class="empty-state hidden">
@@ -260,10 +261,38 @@
     <div class="modal-actions"><button id="saveSettingsBtn" class="primary-btn">Lưu</button></div>
   </div>
 
+  <div id="bookSettingsModal" class="modal book-settings-modal hidden">
+    <div class="modal-header"><strong>Tùy chỉnh sách</strong><button class="icon-btn compact modal-close">×</button></div>
+    <div class="book-settings-layout">
+      <div class="cover-editor">
+        <div id="bookCoverPreview" class="cover-editor-preview"></div>
+        <input id="customCoverInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+        <button id="chooseCoverBtn" class="secondary-btn" type="button">Chọn ảnh bìa</button>
+        <button id="restoreCoverBtn" class="text-link-btn" type="button">Khôi phục bìa gốc</button>
+      </div>
+      <div class="book-settings-fields">
+        <label>Tên sách<input id="bookTitleInput" type="text" maxlength="180" /></label>
+        <label>Tác giả<input id="bookAuthorInput" type="text" maxlength="180" /></label>
+        <div class="book-group-field">
+          <div class="field-label">Reading list / Nhóm sách</div>
+          <div id="bookCollectionChoices" class="book-collection-choices"></div>
+          <button id="bookCreateCollectionBtn" class="text-link-btn" type="button">＋ Tạo nhóm mới</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions split-actions"><button id="deleteBookFromSettingsBtn" class="danger-btn" type="button">Xóa sách</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveBookSettingsBtn" class="primary-btn" type="button">Lưu thay đổi</button></div></div>
+  </div>
+
+  <div id="collectionModal" class="modal collection-modal hidden">
+    <div class="modal-header"><strong id="collectionModalTitle">Tạo reading list</strong><button class="icon-btn compact modal-close">×</button></div>
+    <label class="modal-field">Tên nhóm / reading list<input id="collectionNameInput" type="text" maxlength="60" placeholder="Ví dụ: Muốn đọc, Đang đọc, Văn học..." /></label>
+    <div class="modal-actions split-actions"><button id="deleteCollectionBtn" class="danger-btn hidden" type="button">Xóa nhóm</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveCollectionBtn" class="primary-btn" type="button">Lưu nhóm</button></div></div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.2.10"></script>
+  <script src="config.js?v=1.3.0"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.2.10"></script>
+  <script src="app.js?v=1.3.0"></script>
 </body>
 </html>

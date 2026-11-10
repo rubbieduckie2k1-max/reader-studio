@@ -15,6 +15,7 @@
     purple: '#bda0eb'
   };
   const GLOBAL_NOTEBOOK_ID = '__reader_studio_global__';
+  const COLLECTIONS_NOTEBOOK_ID = '__reader_studio_collections__';
   const LEGACY_DB_NAME = 'ReaderStudioDB';
   const SYNC_STORES = ['books', 'annotations', 'bookmarks', 'notebooks'];
 
@@ -47,6 +48,13 @@
     globalNotebookSaveTimer: null,
     globalNotebookBookId: GLOBAL_NOTEBOOK_ID,
     globalNotebookLoaded: false,
+    collections: [],
+    activeCollectionId: 'all',
+    editingCollectionId: null,
+    collectionReturnBookId: null,
+    editingBookId: null,
+    pendingCover: null,
+    pendingCoverMode: null,
     notebookRanges: new WeakMap(),
     progressSaveTimer: null,
     readerLayoutTimer: null,
@@ -70,7 +78,7 @@
   const els = {};
   const cacheEls = () => {
     [
-      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch',
+      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar',
       'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
@@ -80,7 +88,9 @@
       'notesList','highlightsList','bookNotebookToolbar','notebookEditor','notebookSaveState','selectionToolbar','translationPopover',
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang',
-      'saveSettingsBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
+      'saveSettingsBtn','bookSettingsModal','bookCoverPreview','customCoverInput','chooseCoverBtn','restoreCoverBtn','bookTitleInput','bookAuthorInput',
+      'bookCollectionChoices','bookCreateCollectionBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
+      'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
       'signUpBtn','signInBtn','forgotPasswordBtn','resetPasswordPanel','resetPasswordIntro','newPassword','confirmNewPassword','resetPasswordMessage',
       'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn','toast'
     ].forEach(id => els[id] = document.getElementById(id));
@@ -824,7 +834,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.2.10', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.3.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -834,6 +844,21 @@
     els.emptyAddBtn.addEventListener('click', () => els.bookFileInput.click());
     els.bookFileInput.addEventListener('change', handleFileInput);
     els.librarySearch.addEventListener('input', renderLibrary);
+    els.chooseCoverBtn.addEventListener('click', () => els.customCoverInput.click());
+    els.customCoverInput.addEventListener('change', handleCustomCoverInput);
+    els.restoreCoverBtn.addEventListener('click', restoreOriginalCoverPreview);
+    els.saveBookSettingsBtn.addEventListener('click', saveBookSettings);
+    els.deleteBookFromSettingsBtn.addEventListener('click', async () => {
+      const bookId = state.editingBookId;
+      closeModals();
+      if (bookId) await deleteBook(bookId);
+    });
+    els.bookCreateCollectionBtn.addEventListener('click', () => openCollectionModal());
+    els.saveCollectionBtn.addEventListener('click', saveCollectionFromModal);
+    els.deleteCollectionBtn.addEventListener('click', deleteCurrentCollection);
+    els.collectionNameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') saveCollectionFromModal();
+    });
     $$('.library-nav-tab').forEach(tab => tab.addEventListener('click', () => showLibraryPanel(tab.dataset.libraryPanel)));
     $$('.segmented [data-filter]').forEach(btn => btn.addEventListener('click', () => {
       $$('.segmented [data-filter]').forEach(b => b.classList.remove('active'));
@@ -1008,43 +1033,245 @@
   // ---------- Library ----------
   async function refreshLibrary() {
     state.books = (await dbGetAll('books')).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    await loadCollections();
     renderLibrary();
     if (!els.globalNotebookPanel.classList.contains('hidden')) await renderGlobalNotebookList();
+  }
+
+  async function loadCollections() {
+    const row = await dbGet('notebooks', COLLECTIONS_NOTEBOOK_ID).catch(() => null);
+    const collections = Array.isArray(row?.collections) ? row.collections : [];
+    state.collections = collections.map(item => ({
+      id:String(item.id || uid()),
+      name:String(item.name || 'Nhóm chưa đặt tên').trim().slice(0, 60),
+      bookIds:[...new Set(Array.isArray(item.bookIds) ? item.bookIds.map(String) : [])],
+      createdAt:Number(item.createdAt || Date.now())
+    }));
+    if (!['all','unfiled'].includes(state.activeCollectionId)
+      && !state.collections.some(item => item.id === state.activeCollectionId)) state.activeCollectionId = 'all';
+  }
+
+  async function saveCollections() {
+    await dbPut('notebooks', {
+      bookId:COLLECTIONS_NOTEBOOK_ID,
+      collections:state.collections,
+      updatedAt:Date.now()
+    });
+  }
+
+  function collectionCount(collection) {
+    const existing = new Set(state.books.map(book => book.id));
+    return collection.bookIds.filter(id => existing.has(id)).length;
+  }
+
+  function bookCollectionIds(bookId) {
+    return state.collections.filter(item => item.bookIds.includes(bookId)).map(item => item.id);
+  }
+
+  function renderCollectionsBar() {
+    const assigned = new Set(state.collections.flatMap(item => item.bookIds));
+    const unfiledCount = state.books.filter(book => !assigned.has(book.id)).length;
+    const filter = (id, label, count) => `<button class="collection-pill${state.activeCollectionId === id ? ' active' : ''}" data-collection-filter="${escapeHTML(id)}"><span>${escapeHTML(label)}</span><b>${count}</b></button>`;
+    els.collectionsBar.innerHTML = [
+      filter('all', 'Tất cả sách', state.books.length),
+      filter('unfiled', 'Chưa phân nhóm', unfiledCount),
+      ...state.collections.map(item => `<span class="collection-pill-wrap">${filter(item.id, item.name, collectionCount(item))}<button class="collection-edit" data-edit-collection="${escapeHTML(item.id)}" title="Đổi tên hoặc xóa nhóm">•••</button></span>`),
+      '<button class="collection-create" data-create-collection>＋ Tạo reading list</button>'
+    ].join('');
+    $$('[data-collection-filter]', els.collectionsBar).forEach(button => button.addEventListener('click', () => {
+      state.activeCollectionId = button.dataset.collectionFilter;
+      renderLibrary();
+    }));
+    $$('[data-edit-collection]', els.collectionsBar).forEach(button => button.addEventListener('click', () => openCollectionModal(button.dataset.editCollection)));
+    $('[data-create-collection]', els.collectionsBar)?.addEventListener('click', () => openCollectionModal());
   }
 
   function renderLibrary() {
     const query = els.librarySearch.value.trim().toLowerCase();
     const filter = $('.segmented [data-filter].active')?.dataset.filter || 'all';
+    const assigned = new Set(state.collections.flatMap(item => item.bookIds));
+    const activeCollection = state.collections.find(item => item.id === state.activeCollectionId);
     const books = state.books.filter(book => {
       const matchesFilter = filter === 'all' || book.type === filter;
       const matchesQuery = !query || `${book.title} ${book.author || ''}`.toLowerCase().includes(query);
-      return matchesFilter && matchesQuery;
+      const matchesCollection = state.activeCollectionId === 'all'
+        || (state.activeCollectionId === 'unfiled' ? !assigned.has(book.id) : !!activeCollection?.bookIds.includes(book.id));
+      return matchesFilter && matchesQuery && matchesCollection;
     });
 
+    renderCollectionsBar();
     els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query || filter !== 'all');
-    els.bookGrid.innerHTML = books.map(book => {
+    els.bookGrid.innerHTML = books.length ? books.map(book => {
       const progress = Math.round(book.progress || 0);
       const cover = book.cover
         ? `<img src="${book.cover}" alt="" />`
         : `<div class="cover-fallback"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Reader Studio')}</span></div>`;
       return `<article class="book-card" data-book-id="${book.id}">
-        <div class="book-cover">${cover}<span class="format-badge">${book.type.toUpperCase()}</span><button class="card-delete" title="Xóa sách">×</button></div>
+        <div class="book-cover">${cover}<span class="format-badge">${book.type.toUpperCase()}</span><button class="card-menu" title="Đổi bìa và sắp xếp sách" aria-label="Tùy chỉnh sách">•••</button></div>
         <div class="book-meta"><div class="book-title">${escapeHTML(book.title)}</div><div class="book-author">${escapeHTML(book.author || 'Không rõ tác giả')}</div>
           <div class="mini-progress"><div class="mini-progress-track"><span style="width:${progress}%"></span></div><span>${progress}%</span></div>
         </div>
       </article>`;
-    }).join('');
+    }).join('') : `<div class="collection-empty"><strong>Chưa có sách phù hợp</strong><span>Hãy đổi bộ lọc hoặc thêm sách vào reading list này.</span></div>`;
 
     $$('.book-card', els.bookGrid).forEach(card => {
       card.addEventListener('click', e => {
-        if (e.target.closest('.card-delete')) return;
+        if (e.target.closest('.card-menu')) return;
         openBook(card.dataset.bookId);
       });
-      $('.card-delete', card).addEventListener('click', e => {
+      $('.card-menu', card).addEventListener('click', e => {
         e.stopPropagation();
-        deleteBook(card.dataset.bookId);
+        openBookSettings(card.dataset.bookId);
       });
     });
+  }
+
+  function renderBookCoverPreview(cover, title) {
+    els.bookCoverPreview.innerHTML = cover
+      ? `<img src="${cover}" alt="Bìa ${escapeHTML(title || '')}" />`
+      : `<div class="cover-fallback"><strong>${escapeHTML(title || 'Sách')}</strong><span>Reader Studio</span></div>`;
+  }
+
+  function renderBookCollectionChoices(bookId) {
+    if (!state.collections.length) {
+      els.bookCollectionChoices.innerHTML = '<span class="empty-choice">Chưa có nhóm nào. Bạn có thể tạo reading list mới.</span>';
+      return;
+    }
+    els.bookCollectionChoices.innerHTML = state.collections.map(item => `<label class="collection-check"><input type="checkbox" value="${escapeHTML(item.id)}" ${item.bookIds.includes(bookId) ? 'checked' : ''} /><span>${escapeHTML(item.name)}</span></label>`).join('');
+  }
+
+  function openBookSettings(bookId) {
+    const book = state.books.find(item => item.id === bookId);
+    if (!book) return;
+    state.editingBookId = bookId;
+    state.pendingCover = null;
+    state.pendingCoverMode = null;
+    els.bookTitleInput.value = book.title || '';
+    els.bookAuthorInput.value = book.author || '';
+    renderBookCoverPreview(book.cover, book.title);
+    renderBookCollectionChoices(bookId);
+    els.customCoverInput.value = '';
+    els.restoreCoverBtn.disabled = !book.customCover && !book.originalCover;
+    openModal(els.bookSettingsModal);
+  }
+
+  async function imageFileToCover(file) {
+    if (!file?.type?.startsWith('image/')) throw new Error('Hãy chọn file PNG, JPG hoặc WEBP.');
+    if (file.size > 18 * 1024 * 1024) throw new Error('Ảnh bìa phải nhỏ hơn 18 MB.');
+    const url = URL.createObjectURL(file);
+    try {
+      const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Không đọc được ảnh bìa.'));
+        img.src = url;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = 720;
+      canvas.height = 1080;
+      const targetRatio = canvas.width / canvas.height;
+      const sourceRatio = image.naturalWidth / image.naturalHeight;
+      let sx = 0, sy = 0, sw = image.naturalWidth, sh = image.naturalHeight;
+      if (sourceRatio > targetRatio) {
+        sw = sh * targetRatio;
+        sx = (image.naturalWidth - sw) / 2;
+      } else {
+        sh = sw / targetRatio;
+        sy = (image.naturalHeight - sh) / 2;
+      }
+      canvas.getContext('2d').drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', .86);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function handleCustomCoverInput() {
+    const file = els.customCoverInput.files?.[0];
+    if (!file) return;
+    try {
+      state.pendingCover = await imageFileToCover(file);
+      state.pendingCoverMode = 'custom';
+      renderBookCoverPreview(state.pendingCover, els.bookTitleInput.value);
+    } catch (error) {
+      toast(error.message || 'Không thể dùng ảnh này', 3600);
+    }
+  }
+
+  function restoreOriginalCoverPreview() {
+    const book = state.books.find(item => item.id === state.editingBookId);
+    if (!book) return;
+    state.pendingCover = book.originalCover || (book.customCover ? '' : book.cover || '');
+    state.pendingCoverMode = 'restore';
+    renderBookCoverPreview(state.pendingCover, els.bookTitleInput.value);
+  }
+
+  async function saveBookSettings() {
+    const book = state.books.find(item => item.id === state.editingBookId);
+    if (!book) return;
+    const title = els.bookTitleInput.value.trim();
+    if (!title) return toast('Tên sách không được để trống');
+    book.title = title;
+    book.author = els.bookAuthorInput.value.trim();
+    if (state.pendingCoverMode === 'custom' && state.pendingCover) {
+      if (!book.originalCover) book.originalCover = book.cover || '';
+      book.cover = state.pendingCover;
+      book.customCover = true;
+    } else if (state.pendingCoverMode === 'restore') {
+      book.cover = state.pendingCover || '';
+      book.customCover = false;
+    }
+    const selected = new Set($$('input[type="checkbox"]:checked', els.bookCollectionChoices).map(input => input.value));
+    state.collections.forEach(item => {
+      const hasBook = item.bookIds.includes(book.id);
+      if (selected.has(item.id) && !hasBook) item.bookIds.push(book.id);
+      if (!selected.has(item.id) && hasBook) item.bookIds = item.bookIds.filter(id => id !== book.id);
+    });
+    book.updatedAt = Date.now();
+    await dbPut('books', book);
+    await saveCollections();
+    closeModals();
+    await refreshLibrary();
+    toast('Đã cập nhật sách');
+  }
+
+  function openCollectionModal(collectionId = null) {
+    const collection = state.collections.find(item => item.id === collectionId);
+    state.collectionReturnBookId = !els.bookSettingsModal.classList.contains('hidden') ? state.editingBookId : null;
+    state.editingCollectionId = collection?.id || null;
+    els.collectionModalTitle.textContent = collection ? 'Chỉnh sửa nhóm sách' : 'Tạo reading list';
+    els.collectionNameInput.value = collection?.name || '';
+    els.deleteCollectionBtn.classList.toggle('hidden', !collection);
+    openModal(els.collectionModal);
+    setTimeout(() => els.collectionNameInput.focus(), 40);
+  }
+
+  async function saveCollectionFromModal() {
+    const name = els.collectionNameInput.value.trim();
+    if (!name) return toast('Hãy nhập tên nhóm');
+    if (state.editingCollectionId) {
+      const collection = state.collections.find(item => item.id === state.editingCollectionId);
+      if (collection) collection.name = name;
+    } else {
+      state.collections.push({ id:uid(), name, bookIds:[], createdAt:Date.now() });
+    }
+    await saveCollections();
+    const bookId = state.collectionReturnBookId;
+    closeModals();
+    await refreshLibrary();
+    if (bookId) openBookSettings(bookId);
+    toast('Đã lưu reading list');
+  }
+
+  async function deleteCurrentCollection() {
+    const collection = state.collections.find(item => item.id === state.editingCollectionId);
+    if (!collection || !confirm(`Xóa nhóm “${collection.name}”? Sách bên trong vẫn được giữ lại.`)) return;
+    state.collections = state.collections.filter(item => item.id !== collection.id);
+    if (state.activeCollectionId === collection.id) state.activeCollectionId = 'all';
+    await saveCollections();
+    closeModals();
+    await refreshLibrary();
+    toast('Đã xóa nhóm · sách vẫn còn trong thư viện');
   }
 
   async function showLibraryPanel(name) {
@@ -1185,6 +1412,14 @@
     await deleteByBook('annotations', id);
     await deleteByBook('bookmarks', id);
     await dbDelete('notebooks', id).catch(() => {});
+    let collectionsChanged = false;
+    state.collections.forEach(item => {
+      if (item.bookIds.includes(id)) {
+        item.bookIds = item.bookIds.filter(bookId => bookId !== id);
+        collectionsChanged = true;
+      }
+    });
+    if (collectionsChanged) await saveCollections();
     if (state.globalNotebookBookId === id) {
       state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
       state.globalNotebookLoaded = false;
@@ -2557,6 +2792,9 @@
     els.modalBackdrop.classList.add('hidden');
     $$('.modal').forEach(m => m.classList.add('hidden'));
     state.currentEditingAnnotation = null;
+    state.editingBookId = null;
+    state.editingCollectionId = null;
+    state.collectionReturnBookId = null;
   }
 
   function toast(message, duration=2200) {
