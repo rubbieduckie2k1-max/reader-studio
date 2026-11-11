@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.5.2" />
-  <link rel="stylesheet" href="styles.css?v=1.5.2" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.6.0" />
+  <link rel="stylesheet" href="styles.css?v=1.6.0" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -40,7 +40,7 @@
             <div id="authorsBar" class="authors-bar" aria-label="Lọc sách theo tác giả"></div>
           </div>
         </div>
-        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.5.2</span></div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.6.0</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -296,6 +296,17 @@
   <div id="settingsModal" class="modal hidden">
     <div class="modal-header"><strong>Cài đặt</strong><button class="icon-btn compact modal-close">×</button></div>
     <div class="settings-grid">
+      <section class="ui-scale-setting" aria-labelledby="uiScaleTitle">
+        <div class="ui-scale-heading"><strong id="uiScaleTitle">Kích thước giao diện</strong><output id="uiScaleValue" for="uiScaleRange">90%</output></div>
+        <input id="uiScaleRange" type="range" min="80" max="110" step="5" value="90" aria-label="Kích thước giao diện" />
+        <div id="uiScalePresets" class="ui-scale-presets" aria-label="Chọn nhanh kích thước giao diện">
+          <button type="button" data-ui-scale="80">80%</button>
+          <button type="button" data-ui-scale="90">90%</button>
+          <button type="button" data-ui-scale="100">100%</button>
+          <button type="button" data-ui-scale="110">110%</button>
+        </div>
+        <p>Chỉ thay đổi kích thước các nút, sidebar và bố cục; không đổi cỡ chữ trong sách.</p>
+      </section>
       <label>Nguồn dịch<select id="sourceLang"><option value="en">English</option><option value="vi">Tiếng Việt</option></select></label>
       <label>Dịch sang<select id="targetLang"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></label>
       <p class="settings-note">Dịch nhanh dùng dịch vụ MyMemory và cần kết nối Internet.</p>
@@ -333,8 +344,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.5.2"></script>
+  <script src="config.js?v=1.6.0"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.5.2"></script>
+  <script src="app.js?v=1.6.0"></script>
 </body>
 </html>

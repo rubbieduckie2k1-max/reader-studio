@@ -77,7 +77,12 @@
     settings: {
       theme: localStorage.getItem('reader-theme') || 'light',
       sourceLang: localStorage.getItem('reader-source-lang') || 'en',
-      targetLang: localStorage.getItem('reader-target-lang') || 'vi'
+      targetLang: localStorage.getItem('reader-target-lang') || 'vi',
+      uiScale: (() => {
+        const stored = Number(localStorage.getItem('reader-ui-scale'));
+        if (Number.isFinite(stored) && stored >= 80 && stored <= 110) return stored;
+        return window.innerWidth <= 780 ? 100 : 90;
+      })()
     }
   };
 
@@ -95,7 +100,7 @@
       'footerPrevBtn','footerNextBtn','progressBar','progressText','mobileZoomControls','mobileZoomOutBtn','mobileZoomInBtn','mobileZoomLabel','readerLoading','tocList','bookmarkList','bookmarkCount',
       'notesList','highlightsList','bookNotebookToolbar','notebookEditor','notebookSaveState','selectionToolbar','translationPopover',
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
-      'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang',
+      'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang','uiScaleRange','uiScaleValue','uiScalePresets',
       'saveSettingsBtn','bookSettingsModal','bookCoverPreview','customCoverInput','chooseCoverBtn','restoreCoverBtn','bookTitleInput','bookAuthorInput',
       'bookCollectionChoices','bookCreateCollectionBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
       'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
@@ -843,12 +848,13 @@
     state.legacyDb = await openDB(LEGACY_DB_NAME);
     state.db = state.legacyDb;
     applyTheme();
+    applyUIScale(state.settings.uiScale);
     applyLibrarySidebarState();
     bindUI();
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.5.2', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.6.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -902,6 +908,8 @@
     els.accountBtn.addEventListener('click', openAccountModal);
     els.settingsBtn.addEventListener('click', openSettings);
     els.saveSettingsBtn.addEventListener('click', saveSettings);
+    els.uiScaleRange.addEventListener('input', () => applyUIScale(els.uiScaleRange.value, true));
+    $$('[data-ui-scale]', els.uiScalePresets).forEach(button => button.addEventListener('click', () => applyUIScale(button.dataset.uiScale, true)));
     els.backBtn.addEventListener('click', closeReader);
     els.librarySidebarHideBtn.addEventListener('click', () => setLibrarySidebar(true));
     els.librarySidebarShowBtn.addEventListener('click', () => setLibrarySidebar(false));
@@ -1055,17 +1063,38 @@
     applyTheme();
   }
 
+  function applyUIScale(value, persist = false) {
+    const scale = clamp(Math.round(Number(value || 100) / 5) * 5, 80, 110);
+    const factor = scale / 100;
+    state.settings.uiScale = scale;
+    if (els.libraryView) {
+      els.libraryView.style.zoom = String(factor);
+      els.libraryView.style.width = `${100 / factor}%`;
+      els.libraryView.style.minHeight = `${100 / factor}vh`;
+      els.libraryView.style.setProperty('--ui-viewport-height', `${100 / factor}vh`);
+    }
+    if (els.uiScaleRange) els.uiScaleRange.value = String(scale);
+    if (els.uiScaleValue) els.uiScaleValue.textContent = `${scale}%`;
+    if (els.uiScalePresets) {
+      $$('[data-ui-scale]', els.uiScalePresets).forEach(button => button.classList.toggle('active', Number(button.dataset.uiScale) === scale));
+    }
+    if (persist) localStorage.setItem('reader-ui-scale', String(scale));
+  }
+
   function openSettings() {
     els.sourceLang.value = state.settings.sourceLang;
     els.targetLang.value = state.settings.targetLang;
+    applyUIScale(state.settings.uiScale);
     openModal(els.settingsModal);
   }
 
   function saveSettings() {
     state.settings.sourceLang = els.sourceLang.value;
     state.settings.targetLang = els.targetLang.value;
+    state.settings.uiScale = Number(els.uiScaleRange.value || state.settings.uiScale);
     localStorage.setItem('reader-source-lang', state.settings.sourceLang);
     localStorage.setItem('reader-target-lang', state.settings.targetLang);
+    applyUIScale(state.settings.uiScale, true);
     closeModals();
     toast('Đã lưu cài đặt');
   }

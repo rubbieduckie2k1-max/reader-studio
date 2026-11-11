@@ -311,6 +311,16 @@ body.dark .annotation-card:hover { filter:brightness(1.08); }
 .settings-grid label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:650; }
 .settings-grid select { border:1px solid var(--line); border-radius:10px; background:var(--surface-2); color:var(--text); padding:9px; }
 .settings-note { color:var(--muted); font-size:11px; margin:0; }
+.ui-scale-setting { padding:14px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); }
+.ui-scale-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:10px; }
+.ui-scale-heading strong { color:var(--text); font-size:13px; }
+.ui-scale-heading output { min-width:48px; padding:5px 8px; border-radius:999px; background:var(--surface); color:var(--accent); font-size:11px; font-weight:800; text-align:center; }
+.ui-scale-setting input[type="range"] { width:100%; accent-color:var(--accent); cursor:pointer; }
+.ui-scale-presets { margin-top:10px; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.ui-scale-presets button { min-height:34px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--muted); font-size:11px; font-weight:700; }
+.ui-scale-presets button:hover { background:var(--accent-soft); color:var(--accent); }
+.ui-scale-presets button.active { border-color:var(--accent); background:var(--accent); color:#FFF9EF; }
+.ui-scale-setting p { margin:10px 0 0; color:var(--muted); font-size:10px; line-height:1.5; }
 .auth-modal { width:min(520px, calc(100vw - 28px)); }
 .auth-panel { display:grid; gap:12px; }
 .auth-intro { margin:2px 0 4px; color:var(--muted); font-size:12px; line-height:1.55; }
@@ -731,7 +741,7 @@ body.dark .library-sidebar { background:#1E1816; }
   background:var(--bg);
 }
 .library-sidebar {
-  position:sticky; top:0; width:310px; height:100vh;
+  position:sticky; top:0; width:310px; height:var(--ui-viewport-height,100vh);
   padding:28px 20px 22px; display:flex; flex-direction:column;
   background:var(--walnut); color:#F4E8D2;
   border:0; box-shadow:none; z-index:35;
