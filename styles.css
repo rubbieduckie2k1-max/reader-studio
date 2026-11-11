@@ -980,7 +980,17 @@ body.dark .library-sidebar { background:#1E1816; }
   .book-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:520px) {
-  .library-brandbar .account-btn { display:none; }
+  .library-brandbar { padding-left:12px; padding-right:12px; gap:8px; }
+  .brandline { flex:0 0 auto; }
+  .brand-icon { width:44px; height:44px; border-radius:14px; }
+  .brandline strong { display:none; }
+  .library-brandbar-actions { gap:6px; }
+  .library-brandbar .account-btn {
+    display:flex; max-width:none; height:44px; padding:0 12px;
+    overflow:visible; border-radius:14px; white-space:nowrap;
+    font-size:12px; text-overflow:clip;
+  }
+  .library-brandbar .icon-btn { width:44px; height:44px; border-radius:14px; }
   .library-brandbar #settingsBtn { display:none; }
   .library-header { display:block; }
   .library-header h1 { white-space:normal; }
