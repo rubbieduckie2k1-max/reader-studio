@@ -854,7 +854,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.6.1', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.6.2', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1073,8 +1073,10 @@
       // element to 100 / factor too makes Chrome/Safari count that extra
       // width twice and creates a page-wide horizontal scrollbar.
       els.libraryView.style.width = '100%';
-      els.libraryView.style.minHeight = '100vh';
-      els.libraryView.style.setProperty('--ui-viewport-height', '100vh');
+      // Compensate height only: 100vh at 80% zoom is visually just 80vh.
+      // This keeps the sidebar flush with the bottom without widening the page.
+      els.libraryView.style.minHeight = `${100 / factor}vh`;
+      els.libraryView.style.setProperty('--ui-viewport-height', `${100 / factor}vh`);
     }
     if (els.uiScaleRange) els.uiScaleRange.value = String(scale);
     if (els.uiScaleValue) els.uiScaleValue.textContent = `${scale}%`;
