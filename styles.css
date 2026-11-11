@@ -27,7 +27,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; height: 100%; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body {
   font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
@@ -986,9 +986,10 @@ body.dark .library-sidebar { background:#1E1816; }
   .brandline strong { display:none; }
   .library-brandbar-actions { gap:6px; }
   .library-brandbar .account-btn {
-    display:flex; max-width:none; height:44px; padding:0 12px;
+    display:flex; align-items:center; justify-content:center;
+    max-width:none; min-width:96px; height:44px; padding:0 14px;
     overflow:visible; border-radius:14px; white-space:nowrap;
-    font-size:12px; text-overflow:clip;
+    font-size:12px; line-height:1; text-align:center; text-overflow:clip;
   }
   .library-brandbar .icon-btn { width:44px; height:44px; border-radius:14px; }
   .library-brandbar #settingsBtn { display:none; }
