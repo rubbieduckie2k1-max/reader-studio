@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.6.3" />
-  <link rel="stylesheet" href="styles.css?v=1.6.3" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.7.0" />
+  <link rel="stylesheet" href="styles.css?v=1.7.0" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -22,25 +22,18 @@
         <div class="library-sidebar-scroll">
           <nav class="library-nav" aria-label="Khu vực chính">
             <div class="library-sidebar-label sidebar-label-first">TỔNG</div>
-            <button class="library-nav-tab active" data-library-panel="books"><span aria-hidden="true">▥</span><b>Tất cả sách</b></button>
-            <button class="library-nav-tab" data-library-panel="notebooks"><span aria-hidden="true">▤</span><b>Ghi chú chung</b></button>
+            <button class="library-nav-tab active" data-library-panel="books"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5Zm16 0A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z"/></svg><b>Tất cả sách</b></button>
+            <button class="library-nav-tab" data-library-panel="status"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9m7 10V5m7 14v-7M3 21h18"/></svg><b>Status sách</b></button>
+            <button class="library-nav-tab" data-library-panel="notebooks"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg><b>Ghi chú chung</b></button>
           </nav>
-
-          <button id="collectionsSectionToggle" class="library-section-toggle" type="button" data-library-section="collectionsPanel" aria-expanded="true">
-            <span>NHÓM / READING LIST</span><i aria-hidden="true">▶</i>
-          </button>
-          <div id="collectionsPanel" class="library-section-panel">
-            <div id="collectionsBar" class="collections-bar" aria-label="Reading list và nhóm sách"></div>
-          </div>
-
-          <button id="authorsSectionToggle" class="library-section-toggle" type="button" data-library-section="authorsPanel" aria-expanded="true">
-            <span>TÁC GIẢ</span><i aria-hidden="true">▶</i>
-          </button>
-          <div id="authorsPanel" class="library-section-panel">
-            <div id="authorsBar" class="authors-bar" aria-label="Lọc sách theo tác giả"></div>
-          </div>
+          <div class="library-sidebar-label library-filter-label">BỘ LỌC THƯ VIỆN</div>
+          <label class="sidebar-filter-box"><span>Reading list</span><select id="collectionFilterSelect" aria-label="Lọc theo reading list"></select><small id="collectionFilterMeta"></small></label>
+          <label class="sidebar-filter-box"><span>Tác giả</span><select id="authorFilterSelect" aria-label="Lọc theo tác giả"></select><small id="authorFilterMeta"></small></label>
+          <button id="manageCollectionsBtn" class="sidebar-manage-btn" type="button">＋ Quản lý reading list</button>
+          <div id="collectionsBar" class="hidden" aria-hidden="true"></div>
+          <div id="authorsBar" class="hidden" aria-hidden="true"></div>
         </div>
-        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.6.3</span></div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.7.0</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -78,7 +71,11 @@
 
           <div class="library-tools library-grid-tools">
             <div class="library-result-count">Hiển thị <strong id="libraryResultCount">0 cuốn sách</strong></div>
-            <div class="segmented small"><button class="active" data-filter="all">Tất cả</button><button data-filter="pdf">PDF</button><button data-filter="epub">EPUB</button></div>
+            <div class="library-view-controls">
+              <div class="view-control-group" aria-label="Số sách mỗi hàng"><span>Mỗi hàng</span><button data-grid-cols="2">2</button><button data-grid-cols="3">3</button><button data-grid-cols="4">4</button><button data-grid-cols="5">5</button></div>
+              <div class="view-control-group" aria-label="Kích thước thẻ"><span>Cỡ thẻ</span><button data-card-size="compact">S</button><button data-card-size="normal">M</button><button data-card-size="large">L</button></div>
+              <div class="segmented small"><button class="active" data-filter="all">Tất cả</button><button data-filter="pdf">PDF</button><button data-filter="epub">EPUB</button></div>
+            </div>
           </div>
 
           <main>
@@ -91,6 +88,19 @@
             <div id="bookGrid" class="book-grid"></div>
           </main>
         </div>
+
+        <section id="libraryStatusPanel" class="library-status-panel hidden">
+          <header class="status-header"><span class="eyebrow">THỐNG KÊ ĐỌC</span><h2>Status sách</h2></header>
+          <div class="status-summary">
+            <article><span>Đã đọc xong</span><strong id="statusCompletedBooks">0</strong><small>cuốn sách</small></article>
+            <article><span>Tổng lượt hoàn thành</span><strong id="statusCompletionTotal">0</strong><small>lượt đọc</small></article>
+            <article><span>Chưa đọc xong</span><strong id="statusNeverCompleted">0</strong><small>cuốn sách</small></article>
+          </div>
+          <div class="status-columns">
+            <section><div class="status-list-head"><h3>Đã đọc xong</h3><span id="statusCompletedBadge">0</span></div><div id="statusCompletedList" class="status-book-list"></div></section>
+            <section><div class="status-list-head"><h3>Chưa đọc xong</h3><span id="statusIncompleteBadge">0</span></div><div id="statusIncompleteList" class="status-book-list"></div></section>
+          </div>
+        </section>
 
         <section id="globalNotebookPanel" class="global-notebook-panel hidden">
         <aside class="global-notebook-list-wrap">
@@ -344,8 +354,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.6.3"></script>
+  <script src="config.js?v=1.7.0"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.6.3"></script>
+  <script src="app.js?v=1.7.0"></script>
 </body>
 </html>

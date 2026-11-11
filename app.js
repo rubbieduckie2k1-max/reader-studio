@@ -18,6 +18,7 @@
   };
   const GLOBAL_NOTEBOOK_ID = '__reader_studio_global__';
   const COLLECTIONS_NOTEBOOK_ID = '__reader_studio_collections__';
+  const LIBRARY_PREFS_NOTEBOOK_ID = '__reader_studio_library_prefs__';
   const LEGACY_DB_NAME = 'ReaderStudioDB';
   const SYNC_STORES = ['books', 'annotations', 'bookmarks', 'notebooks'];
 
@@ -51,8 +52,11 @@
     globalNotebookBookId: GLOBAL_NOTEBOOK_ID,
     globalNotebookLoaded: false,
     collections: [],
+    pinnedBookId: null,
     activeCollectionId: 'all',
     activeAuthor: 'all',
+    libraryGridColumns: clamp(Number(localStorage.getItem('reader-library-grid-columns')) || 4, 2, 5),
+    libraryCardSize: ['compact','normal','large'].includes(localStorage.getItem('reader-library-card-size')) ? localStorage.getItem('reader-library-card-size') : 'normal',
     editingCollectionId: null,
     collectionReturnBookId: null,
     editingBookId: null,
@@ -91,8 +95,8 @@
     [
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','libraryResultCount',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
-      'collectionsSectionToggle','authorsSectionToggle','collectionsPanel','authorsPanel',
-      'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
+      'collectionFilterSelect','collectionFilterMeta','authorFilterSelect','authorFilterMeta','manageCollectionsBtn',
+      'libraryBooksPanel','libraryStatusPanel','statusCompletedBooks','statusCompletionTotal','statusNeverCompleted','statusCompletedBadge','statusIncompleteBadge','statusCompletedList','statusIncompleteList','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
@@ -849,12 +853,13 @@
     state.db = state.legacyDb;
     applyTheme();
     applyUIScale(state.settings.uiScale);
+    applyLibraryGridSettings();
     applyLibrarySidebarState();
     bindUI();
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.6.3', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.7.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -891,6 +896,18 @@
     });
     els.bookCreateCollectionBtn.addEventListener('click', () => openCollectionModal());
     $('[data-create-collection-main]')?.addEventListener('click', () => openCollectionModal());
+    els.manageCollectionsBtn?.addEventListener('click', () => {
+      const editable = state.collections.some(item => item.id === state.activeCollectionId) ? state.activeCollectionId : null;
+      openCollectionModal(editable);
+    });
+    els.collectionFilterSelect?.addEventListener('change', () => {
+      state.activeCollectionId = els.collectionFilterSelect.value;
+      showLibraryPanel('books');
+    });
+    els.authorFilterSelect?.addEventListener('change', () => {
+      state.activeAuthor = els.authorFilterSelect.value;
+      showLibraryPanel('books');
+    });
     els.saveCollectionBtn.addEventListener('click', saveCollectionFromModal);
     els.deleteCollectionBtn.addEventListener('click', deleteCurrentCollection);
     els.collectionNameInput.addEventListener('keydown', e => {
@@ -901,6 +918,16 @@
       $$('.segmented [data-filter]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderLibrary();
+    }));
+    $$('[data-grid-cols]').forEach(button => button.addEventListener('click', () => {
+      state.libraryGridColumns = clamp(Number(button.dataset.gridCols), 2, 5);
+      localStorage.setItem('reader-library-grid-columns', String(state.libraryGridColumns));
+      applyLibraryGridSettings();
+    }));
+    $$('[data-card-size]').forEach(button => button.addEventListener('click', () => {
+      state.libraryCardSize = button.dataset.cardSize;
+      localStorage.setItem('reader-library-card-size', state.libraryCardSize);
+      applyLibraryGridSettings();
     }));
 
     els.libraryThemeBtn.addEventListener('click', toggleTheme);
@@ -1105,11 +1132,55 @@
   }
 
   // ---------- Library ----------
+  function applyLibraryGridSettings() {
+    if (!els.libraryView) return;
+    els.libraryView.style.setProperty('--library-cols', String(state.libraryGridColumns));
+    els.libraryView.dataset.cardSize = state.libraryCardSize;
+    $$('[data-grid-cols]').forEach(button => button.classList.toggle('active', Number(button.dataset.gridCols) === state.libraryGridColumns));
+    $$('[data-card-size]').forEach(button => button.classList.toggle('active', button.dataset.cardSize === state.libraryCardSize));
+  }
+
   async function refreshLibrary() {
     state.books = (await dbGetAll('books')).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     await loadCollections();
+    await loadLibraryPreferences();
     renderLibrary();
+    renderStatusPanel();
     if (!els.globalNotebookPanel.classList.contains('hidden')) await renderGlobalNotebookList();
+  }
+
+  async function loadLibraryPreferences() {
+    const row = await dbGet('notebooks', LIBRARY_PREFS_NOTEBOOK_ID).catch(() => null);
+    state.pinnedBookId = row?.pinnedBookId && state.books.some(book => book.id === row.pinnedBookId) ? row.pinnedBookId : null;
+  }
+
+  async function saveLibraryPreferences() {
+    await dbPut('notebooks', { bookId:LIBRARY_PREFS_NOTEBOOK_ID, pinnedBookId:state.pinnedBookId || null, updatedAt:Date.now() });
+  }
+
+  async function pinBook(bookId) {
+    state.pinnedBookId = state.pinnedBookId === bookId ? null : bookId;
+    await saveLibraryPreferences();
+    renderLibraryHero();
+    renderLibrary();
+    toast(state.pinnedBookId ? 'Đã ghim sách lên đầu thư viện' : 'Đã bỏ ghim sách');
+  }
+
+  function completionCount(book) {
+    return Math.max(Number(book.completedCount || 0), Number(book.progress || 0) >= 99.5 ? 1 : 0);
+  }
+
+  async function restartBook(bookId, openAfter = true) {
+    const book = await dbGet('books', bookId);
+    if (!book) return;
+    book.completedCount = completionCount(book);
+    book.progress = 0;
+    book.lastLocation = null;
+    book.readingPlace = null;
+    book.updatedAt = Date.now();
+    await dbPut('books', book);
+    await refreshLibrary();
+    if (openAfter) await openBook(bookId);
   }
 
   async function loadCollections() {
@@ -1146,20 +1217,27 @@
     const assigned = new Set(state.collections.flatMap(item => item.bookIds));
     const unfiledCount = state.books.filter(book => !assigned.has(book.id)).length;
     const filter = (id, label, count) => `<button class="collection-pill${state.activeCollectionId === id ? ' active' : ''}" data-collection-filter="${escapeHTML(id)}"><span>${escapeHTML(label)}</span><b>${count}</b></button>`;
-    els.collectionsBar.innerHTML = [
-      filter('unfiled', 'Chưa phân nhóm', unfiledCount),
-      ...state.collections.map(item => `<span class="collection-pill-wrap">${filter(item.id, item.name, collectionCount(item))}<button class="collection-edit" data-edit-collection="${escapeHTML(item.id)}" title="Đổi tên hoặc xóa nhóm">•••</button></span>`),
-      '<button class="collection-create" data-create-collection>＋ Tạo reading list</button>'
-    ].join('');
+    els.collectionsBar.innerHTML = '';
     els.collectionsChips.innerHTML = [
       filter('all', 'Tất cả sách', state.books.length),
       ...state.collections.map(item => filter(item.id, item.name, collectionCount(item)))
     ].join('');
-    [els.collectionsBar, els.collectionsChips].forEach(container => {
+    if (els.collectionFilterSelect) {
+      els.collectionFilterSelect.innerHTML = [
+        `<option value="all">Tất cả sách (${state.books.length})</option>`,
+        `<option value="unfiled">Chưa phân nhóm (${unfiledCount})</option>`,
+        ...state.collections.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${collectionCount(item)})</option>`)
+      ].join('');
+      els.collectionFilterSelect.value = state.activeCollectionId;
+      const selected = state.activeCollectionId === 'all' ? state.books.length : state.activeCollectionId === 'unfiled' ? unfiledCount : collectionCount(state.collections.find(item => item.id === state.activeCollectionId) || {bookIds:[]});
+      els.collectionFilterMeta.textContent = `${selected} cuốn sách`;
+    }
+    [els.collectionsChips].forEach(container => {
       $$('[data-collection-filter]', container).forEach(button => button.addEventListener('click', () => {
         state.activeCollectionId = button.dataset.collectionFilter;
         els.libraryView.classList.remove('library-sidebar-mobile-open');
         els.libraryBooksPanel.classList.remove('hidden');
+        els.libraryStatusPanel.classList.add('hidden');
         els.globalNotebookPanel.classList.add('hidden');
         $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
         if (state.globalNotebookLoaded) saveGlobalNotebook().catch(() => {});
@@ -1167,7 +1245,6 @@
       }));
       $('[data-create-collection]', container)?.addEventListener('click', () => openCollectionModal());
     });
-    $$('[data-edit-collection]', els.collectionsBar).forEach(button => button.addEventListener('click', () => openCollectionModal(button.dataset.editCollection)));
   }
 
   function renderAuthorsBar() {
@@ -1177,41 +1254,40 @@
       countByAuthor.set(author, (countByAuthor.get(author) || 0) + 1);
     });
     const authors = [...countByAuthor.keys()].sort((a, b) => a.localeCompare(b, 'vi'));
-    const row = (author, label, count) => `<button class="author-filter${state.activeAuthor === author ? ' active' : ''}" data-author-filter="${escapeHTML(author)}"><b>${count}</b><span>${escapeHTML(label)}</span></button>`;
-    els.authorsBar.innerHTML = [
-      row('all', 'Tất cả tác giả', state.books.length),
-      ...authors.map(author => row(author, author, countByAuthor.get(author)))
-    ].join('');
-    $$('[data-author-filter]', els.authorsBar).forEach(button => button.addEventListener('click', () => {
-      state.activeAuthor = button.dataset.authorFilter;
-      els.libraryView.classList.remove('library-sidebar-mobile-open');
-      els.libraryBooksPanel.classList.remove('hidden');
-      els.globalNotebookPanel.classList.add('hidden');
-      $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
-      renderLibrary();
-    }));
+    els.authorsBar.innerHTML = '';
+    if (els.authorFilterSelect) {
+      els.authorFilterSelect.innerHTML = [
+        `<option value="all">Tất cả tác giả (${state.books.length})</option>`,
+        ...authors.map(author => `<option value="${escapeHTML(author)}">${escapeHTML(author)} (${countByAuthor.get(author)})</option>`)
+      ].join('');
+      els.authorFilterSelect.value = state.activeAuthor;
+      els.authorFilterMeta.textContent = state.activeAuthor === 'all' ? `${authors.length} tác giả` : `${countByAuthor.get(state.activeAuthor) || 0} cuốn sách`;
+    }
   }
 
   function renderLibraryHero() {
-    const book = state.books.find(item => Number(item.progress || 0) > 0 && Number(item.progress || 0) < 100) || state.books[0];
+    const book = state.books.find(item => item.id === state.pinnedBookId);
     if (!book) {
-      els.libraryHero.classList.add('hidden');
-      els.libraryHero.innerHTML = '';
+      els.libraryHero.innerHTML = `<div class="library-hero-empty"><span class="hero-pin-symbol">⌖</span><div><div class="library-hero-eyebrow">KỆ SÁCH CỦA BẠN</div><h2>Ghim một cuốn sách</h2><p>Dùng nút ghim trên thẻ sách để đưa cuốn bạn muốn đọc lên đây.</p></div></div>`;
+      els.libraryHero.classList.remove('hidden');
       return;
     }
     const progress = Math.round(book.progress || 0);
+    const isDone = progress >= 100;
+    const actionLabel = isDone ? 'Đọc lại từ đầu' : progress > 0 ? 'Đọc tiếp' : 'Bắt đầu đọc';
     const cover = book.cover
       ? `<img src="${book.cover}" alt="" />`
       : `<div class="hero-cover-fallback"><small>${escapeHTML(book.author || 'Reader Studio')}</small><strong>${escapeHTML(book.title)}</strong><span>${book.type.toUpperCase()}</span></div>`;
     els.libraryHero.innerHTML = `<div class="library-hero-copy">
-        <div class="library-hero-eyebrow">TIẾP TỤC ĐỌC</div>
+        <div class="library-hero-eyebrow">⌖ &nbsp; SÁCH ĐÃ GHIM</div>
         <h2>${escapeHTML(book.title)}</h2>
         <p>${escapeHTML(book.author || 'Không rõ tác giả')}</p>
-        <div class="library-hero-actions"><button class="hero-continue" data-hero-open="${escapeHTML(book.id)}">› <span>Đọc tiếp</span></button><b>${progress}% đã đọc</b></div>
+        <div class="library-hero-actions"><button class="hero-continue" ${isDone ? 'data-hero-restart' : 'data-hero-open'}="${escapeHTML(book.id)}">▶ <span>${actionLabel}</span></button><b>${progress}% đã đọc</b></div>
       </div>
       <div class="library-hero-stage"><div class="library-hero-reflection" aria-hidden="true">${cover}</div><div class="library-hero-cover">${cover}</div><div class="hero-progress-card"><span>Tiến độ</span><b>${progress}%</b><i><em style="width:${progress}%"></em></i></div></div>`;
     els.libraryHero.classList.remove('hidden');
     $('[data-hero-open]', els.libraryHero)?.addEventListener('click', () => openBook(book.id));
+    $('[data-hero-restart]', els.libraryHero)?.addEventListener('click', () => restartBook(book.id));
   }
 
   function renderLibrary() {
@@ -1240,12 +1316,13 @@
     els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query || filter !== 'all');
     els.bookGrid.innerHTML = books.length ? books.map(book => {
       const progress = Math.round(book.progress || 0);
+      const completed = completionCount(book);
       const cover = book.cover
         ? `<img src="${book.cover}" alt="" />`
         : `<div class="cover-fallback"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Reader Studio')}</span></div>`;
       return `<article class="book-card" data-book-id="${book.id}">
-        <div class="book-cover">${cover}<span class="format-badge">${book.type.toUpperCase()}</span><button class="card-menu" title="Đổi bìa và sắp xếp sách" aria-label="Tùy chỉnh sách">•••</button></div>
-        <div class="book-meta"><div class="book-title">${escapeHTML(book.title)}</div><div class="book-author">${escapeHTML(book.author || 'Không rõ tác giả')}</div>
+        <div class="book-cover">${cover}<span class="format-badge">${book.type.toUpperCase()}</span></div>
+        <div class="book-meta"><div class="book-card-actions"><button class="card-pin${state.pinnedBookId === book.id ? ' active' : ''}" title="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-label="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-pressed="${state.pinnedBookId === book.id}" data-pin-book><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 4 6 6-3 1-4 4-1 5-2-2-4 4-1-1 4-4-2-2 5-1 4-4 1-3Z"/></svg></button><button class="card-menu" title="Đổi bìa và sắp xếp sách" aria-label="Tùy chỉnh sách">•••</button></div><div class="book-title">${escapeHTML(book.title)}</div><div class="book-author">${escapeHTML(book.author || 'Không rõ tác giả')}</div><div class="book-card-tags"><span>${book.type.toUpperCase()}</span>${completed ? `<span class="completed-tag">Đã xong ×${completed}</span>` : ''}</div>
           <div class="mini-progress"><div class="mini-progress-track"><span style="width:${progress}%"></span></div><span>${progress}%</span></div>
         </div>
       </article>`;
@@ -1253,14 +1330,45 @@
 
     $$('.book-card', els.bookGrid).forEach(card => {
       card.addEventListener('click', e => {
-        if (e.target.closest('.card-menu')) return;
+        if (e.target.closest('.card-menu,.card-pin')) return;
         openBook(card.dataset.bookId);
       });
       $('.card-menu', card).addEventListener('click', e => {
         e.stopPropagation();
         openBookSettings(card.dataset.bookId);
       });
+      $('.card-pin', card).addEventListener('click', e => {
+        e.stopPropagation();
+        pinBook(card.dataset.bookId);
+      });
     });
+  }
+
+  function renderStatusPanel() {
+    if (!els.libraryStatusPanel) return;
+    const completed = state.books.filter(book => completionCount(book) > 0);
+    const incomplete = state.books.filter(book => completionCount(book) === 0);
+    const total = completed.reduce((sum, book) => sum + completionCount(book), 0);
+    els.statusCompletedBooks.textContent = String(completed.length);
+    els.statusCompletionTotal.textContent = String(total);
+    els.statusNeverCompleted.textContent = String(incomplete.length);
+    els.statusCompletedBadge.textContent = String(completed.length);
+    els.statusIncompleteBadge.textContent = String(incomplete.length);
+    const cover = book => book.cover ? `<img src="${book.cover}" alt="" />` : `<span>${escapeHTML((book.title || 'S').slice(0, 1))}</span>`;
+    els.statusCompletedList.innerHTML = completed.length ? completed.map(book => {
+      const count = completionCount(book);
+      const date = book.lastCompletedAt ? new Intl.DateTimeFormat('vi-VN').format(new Date(book.lastCompletedAt)) : 'Đã hoàn thành';
+      return `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><div class="status-book-cover">${cover(book)}</div><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span><small>${date} · Tiến độ hiện tại ${Math.round(book.progress || 0)}%</small></div><div class="status-book-actions"><b>${count} lần</b><button data-status-reread="${escapeHTML(book.id)}">↻ Đọc lại</button></div></article>`;
+    }).join('') : '<div class="status-empty">Chưa có cuốn sách nào được đọc xong.</div>';
+    els.statusIncompleteList.innerHTML = incomplete.length ? incomplete.map(book => `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><div class="status-book-cover">${cover(book)}</div><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span><small>Tiến độ ${Math.round(book.progress || 0)}%</small></div><div class="status-book-actions"><b>${Math.round(book.progress || 0)}%</b><button>Mở sách</button></div></article>`).join('') : `<div class="status-empty">${state.books.length ? 'Tất cả sách đều đã được hoàn thành ít nhất một lần.' : 'Chưa có sách trong thư viện.'}</div>`;
+    $$('[data-status-open]', els.libraryStatusPanel).forEach(row => row.addEventListener('click', e => {
+      if (e.target.closest('[data-status-reread]')) return;
+      openBook(row.dataset.statusOpen);
+    }));
+    $$('[data-status-reread]', els.libraryStatusPanel).forEach(button => button.addEventListener('click', e => {
+      e.stopPropagation();
+      restartBook(button.dataset.statusReread);
+    }));
   }
 
   function renderBookCoverPreview(cover, title) {
@@ -1414,12 +1522,17 @@
   async function showLibraryPanel(name) {
     els.libraryView.classList.remove('library-sidebar-mobile-open');
     const showNotebooks = name === 'notebooks';
+    const showStatus = name === 'status';
     $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === name));
-    els.libraryBooksPanel.classList.toggle('hidden', showNotebooks);
+    els.libraryBooksPanel.classList.toggle('hidden', showNotebooks || showStatus);
+    els.libraryStatusPanel.classList.toggle('hidden', !showStatus);
     els.globalNotebookPanel.classList.toggle('hidden', !showNotebooks);
+    if (showStatus) {
+      renderStatusPanel();
+      if (state.globalNotebookLoaded) await saveGlobalNotebook();
+      return;
+    }
     if (!showNotebooks) {
-      state.activeCollectionId = 'all';
-      state.activeAuthor = 'all';
       renderLibrary();
       if (state.globalNotebookLoaded) await saveGlobalNotebook();
       return;
@@ -1482,7 +1595,7 @@
       const base = {
         id: uid(), type: ext, fileName: file.name, fileData: data,
         title: file.name.replace(/\.(pdf|epub)$/i, ''), author: '', cover: '', progress: 0,
-        lastLocation: null, createdAt: Date.now(), updatedAt: Date.now()
+        lastLocation: null, completedCount:0, lastCompletedAt:null, createdAt: Date.now(), updatedAt: Date.now()
       };
       const enriched = ext === 'pdf' ? await inspectPDF(base) : await inspectEPUB(base);
       await dbPut('books', enriched);
@@ -1561,6 +1674,10 @@
       }
     });
     if (collectionsChanged) await saveCollections();
+    if (state.pinnedBookId === id) {
+      state.pinnedBookId = null;
+      await saveLibraryPreferences();
+    }
     if (state.globalNotebookBookId === id) {
       state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
       state.globalNotebookLoaded = false;
@@ -2303,8 +2420,14 @@
 
   function scheduleProgressSave(location, pct) {
     if (!state.currentBook) return;
+    const previous = Number(state.currentBook.progress || 0);
+    const next = clamp(pct, 0, 100);
+    if (previous < 99.5 && next >= 99.5) {
+      state.currentBook.completedCount = completionCount(state.currentBook) + 1;
+      state.currentBook.lastCompletedAt = Date.now();
+    }
     state.currentBook.lastLocation = location;
-    state.currentBook.progress = clamp(pct, 0, 100);
+    state.currentBook.progress = next;
     clearTimeout(state.progressSaveTimer);
     state.progressSaveTimer = setTimeout(() => saveCurrentProgress(), 450);
   }
