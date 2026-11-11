@@ -723,3 +723,275 @@ body.dark .library-sidebar { background:#1E1816; }
   .hero-progress-card { display:none; }
   .book-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 15px; }
 }
+
+/* Reader Studio 1.5.0 · full app using the approved Vintage Library preview */
+.library-view {
+  width:100%; max-width:none; margin:0; padding:0;
+  display:grid; grid-template-columns:310px minmax(0,1fr);
+  background:var(--bg);
+}
+.library-sidebar {
+  position:sticky; top:0; width:310px; height:100vh;
+  padding:28px 20px 22px; display:flex; flex-direction:column;
+  background:var(--walnut); color:#F4E8D2;
+  border:0; box-shadow:none; z-index:35;
+}
+.library-sidebar-head {
+  display:flex; align-items:center; gap:14px;
+  margin:0; padding:0 8px 24px;
+  border-bottom:1px solid rgba(255,255,255,.12);
+}
+.library-sidebar .brand-row { min-width:0; margin:0; gap:14px; }
+.library-sidebar .brand-mark {
+  width:48px; height:48px; border-radius:50%;
+  background:#71343C; color:#FFF4DD;
+  font:700 25px "Cormorant Garamond",Georgia,serif;
+}
+.library-sidebar .brand-name {
+  color:#F4E8D2; font:700 24px "Cormorant Garamond",Georgia,serif;
+}
+.library-sidebar .sidebar-toggle {
+  width:42px; height:42px; margin-left:auto; border-radius:14px;
+  border:1px solid rgba(255,255,255,.18); background:transparent; color:#F4E8D2;
+}
+.library-sidebar-scroll { min-height:0; overflow:auto; padding-right:4px; scrollbar-width:thin; }
+.library-nav { width:100%; margin:0; padding:0; display:grid; gap:4px; border:0; background:transparent; }
+.library-sidebar .sidebar-label-first {
+  margin:26px 12px 10px; padding:0; color:#9C8C7E;
+  font-size:12px; font-weight:700; letter-spacing:.11em;
+}
+.library-nav-tab {
+  width:100%; min-height:52px; padding:0 18px; gap:12px;
+  border-radius:14px; color:#CDBDAB; font-weight:700;
+}
+.library-nav-tab > b { font-size:14px; }
+.library-nav-tab:hover { background:rgba(255,255,255,.07); color:#FFF4DD; }
+.library-nav-tab.active {
+  background:#71343C; color:#FFF4DD;
+  box-shadow:inset 4px 0 #D4BE9D;
+}
+.library-section-toggle {
+  width:100%; margin:24px 0 8px; padding:6px 8px 6px 10px;
+  display:flex; align-items:center; justify-content:space-between;
+  border:0; background:transparent; color:#9C8C7E;
+  font-size:12px; font-weight:700; letter-spacing:.11em; text-align:left;
+}
+.library-section-toggle i {
+  width:28px; height:28px; border:1px solid rgba(212,190,157,.28);
+  border-radius:9px; background:rgba(212,190,157,.08); color:#D4BE9D;
+  display:grid; place-items:center; font-style:normal; font-size:10px; line-height:1;
+  transform:rotate(90deg); transition:transform .2s,background .2s,border-color .2s;
+}
+.library-section-toggle:hover i { background:rgba(212,190,157,.15); border-color:rgba(212,190,157,.48); }
+.library-section-toggle.is-collapsed i { transform:rotate(0); }
+.library-section-panel.is-collapsed { display:none; }
+.library-sidebar .collections-bar { margin:0; padding:0; display:grid; gap:8px; overflow:visible; }
+.library-sidebar .collection-pill,
+.author-filter {
+  width:100%; min-height:48px; padding:8px 12px;
+  display:flex; align-items:center; gap:10px; text-align:left;
+  border:1px solid rgba(255,255,255,.14); border-radius:13px;
+  background:transparent; color:#CDBDAB; font-size:13px; font-weight:600;
+}
+.library-sidebar .collection-pill b,
+.author-filter b {
+  order:-1; flex:0 0 auto; min-width:30px; height:30px; padding:0 8px;
+  display:grid; place-items:center; border-radius:999px;
+  background:rgba(212,190,157,.18); color:#F2D5A7; font-size:13px;
+}
+.library-sidebar .collection-pill span,
+.author-filter span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.library-sidebar .collection-pill-wrap {
+  width:100%; position:relative; display:block; overflow:visible;
+  border:1px solid rgba(255,255,255,.14); border-radius:13px; background:transparent;
+}
+.library-sidebar .collection-pill-wrap .collection-pill {
+  min-height:48px; padding-right:46px; border:0; border-radius:12px;
+}
+.library-sidebar .collection-pill.active,
+.library-sidebar .collection-pill-wrap:has(.collection-pill.active),
+.author-filter.active {
+  background:rgba(113,52,60,.72); color:#FFF4DD; border-color:rgba(212,190,157,.55);
+}
+.library-sidebar .collection-edit {
+  position:absolute; right:8px; top:8px; width:32px; height:32px;
+  border:0; border-radius:9px; color:#D8C6AE; background:transparent;
+}
+.library-sidebar .collection-edit:hover { background:rgba(255,255,255,.10); color:#FFF4DD; }
+.library-sidebar .collection-create {
+  width:100%; min-height:48px; margin-top:2px; padding:0 14px;
+  border:1px dashed #AB8568; border-radius:13px;
+  background:transparent; color:#EFD3A8; font-weight:700;
+}
+.authors-bar { display:grid; gap:4px; }
+.author-filter { min-height:44px; border-color:transparent; border-radius:12px; }
+.author-filter b { min-width:27px; width:27px; height:27px; padding:0; font-size:11px; }
+.author-filter:hover { background:rgba(255,255,255,.07); color:#FFF4DD; }
+.library-sidebar-foot {
+  margin-top:auto; padding:18px 10px 0; display:flex; align-items:center; justify-content:space-between;
+  border-top:1px solid rgba(255,255,255,.12); color:#9D8E81; font-size:12px;
+}
+.library-sidebar-foot span { float:none; }
+
+.library-content {
+  min-width:0; padding:0 0 70px; background-color:var(--bg);
+  background-image:radial-gradient(rgba(220,201,173,.75) 1px,transparent 1px);
+  background-size:10px 10px;
+}
+.library-brandbar {
+  position:sticky; top:0; z-index:24; min-height:112px; padding:20px 42px;
+  display:flex; align-items:center; gap:18px;
+  background:rgba(241,229,207,.97); border-bottom:1px solid #DFCCB0;
+  box-shadow:none; backdrop-filter:blur(16px);
+}
+.brandline { gap:16px; }
+.brand-icon {
+  width:54px; height:54px; border-radius:18px;
+  background:#71343C; color:white; font-size:25px;
+}
+.brandline strong { font:700 31px/1 "Cormorant Garamond",Georgia,serif; }
+.library-brandbar-actions { margin-left:auto; gap:12px; }
+.vintage-label,.library-brandbar .sync-status,.library-brandbar .secondary-btn,.library-brandbar .icon-btn {
+  height:48px; border:1px solid #DFCCB0; border-radius:16px; background:#FFFAF1;
+}
+.vintage-label { padding:0 18px; display:flex; align-items:center; background:#DEC7A5; color:#71343C; font-size:12px; }
+.library-brandbar .sync-status { padding:0 14px; color:#816B60; font-size:13px; }
+.library-brandbar .sync-status i { width:10px; height:10px; }
+.library-brandbar .secondary-btn { padding:0 22px; font-weight:700; }
+.library-brandbar .icon-btn { width:48px; }
+
+.library-header {
+  max-width:none; margin:0; padding:42px 46px 30px;
+  display:grid; grid-template-columns:minmax(385px,1fr) minmax(390px,auto);
+  align-items:center; gap:24px;
+}
+.library-header h1 {
+  margin:0; white-space:nowrap; color:#302622;
+  font:700 54px/1 "Cormorant Garamond",Georgia,serif; letter-spacing:-.035em;
+}
+.library-heading-tools { display:grid; grid-template-columns:minmax(275px,380px) auto; gap:24px; }
+.library-heading-tools .search-box {
+  width:100%; min-width:0; height:52px; padding:0 16px;
+  border:1px solid #DFCCB0; border-radius:16px;
+  background:rgba(255,253,247,.92); box-shadow:none;
+}
+.library-heading-tools .primary-btn {
+  height:52px; padding:0 24px; border-radius:15px;
+  background:#71343C; color:white; box-shadow:none;
+}
+
+.library-hero {
+  width:auto; max-width:none; min-height:385px; margin:0 46px;
+  display:block; position:relative; overflow:hidden;
+  border:8px solid #9A704F; border-radius:20px;
+  background:#2E231F; color:#F6EAD5;
+  box-shadow:0 18px 44px rgba(48,38,34,.12);
+}
+.library-hero:before { content:""; position:absolute; inset:14px; border:1px solid rgba(212,190,157,.28); border-radius:12px; pointer-events:none; }
+.library-hero:after { display:none; }
+.library-hero-copy {
+  position:relative; z-index:3; width:55%; padding:78px 52px;
+  display:block;
+}
+.library-hero-eyebrow { gap:13px; color:#E5BD82; font-size:12px; letter-spacing:.13em; }
+.library-hero-eyebrow:before { width:42px; background:#D7B680; }
+.library-hero h2 { margin:18px 0 8px; color:#F6EAD5; font:700 52px/1.05 "Cormorant Garamond",Georgia,serif; }
+.library-hero p { margin:0; color:#CBB79B; font-size:14px; }
+.library-hero-actions { margin-top:28px; gap:20px; }
+.hero-continue { min-height:0; padding:15px 24px; border:1px solid #A6626A; border-radius:10px; background:#71343C; color:white; }
+.library-hero-actions b { color:#ECCB91; font-size:13px; }
+.library-hero-stage { position:absolute; z-index:1; right:4%; top:0; width:43%; height:100%; padding:0; display:block; }
+.library-hero-cover,.library-hero-reflection {
+  position:absolute; overflow:hidden; border:1px solid rgba(255,255,255,.22);
+  background:#71343C; box-shadow:0 24px 42px rgba(0,0,0,.35);
+}
+.library-hero-cover { right:45px; top:43px; width:215px; aspect-ratio:215/300; border-radius:6px; transform:rotate(2deg); }
+.library-hero-reflection {
+  right:175px; top:46px; width:250px; height:330px; border-radius:6px;
+  opacity:.16; transform:rotate(-8deg); filter:blur(1.2px) sepia(.25);
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 30%,#000 100%);
+  mask-image:linear-gradient(to right,transparent 0,#000 30%,#000 100%);
+}
+.library-hero-cover > img,.library-hero-reflection > img { width:100%; height:100%; object-fit:cover; }
+.library-hero-cover .hero-cover-fallback,.library-hero-reflection .hero-cover-fallback { height:100%; }
+.hero-progress-card {
+  right:4px; bottom:38px; width:178px; padding:14px 16px;
+  border:0; border-radius:10px; background:#EADBC2; color:#71343C;
+  box-shadow:0 8px 20px rgba(0,0,0,.18); font-size:11px;
+}
+
+.reading-list-section { max-width:none; margin:42px 0 0; padding:0 46px; }
+.reading-list-head h2 { font:700 39px "Cormorant Garamond",Georgia,serif; }
+.reading-list-head button { color:#71343C; font-size:13px; }
+.collections-chips { gap:10px; margin-top:18px; padding:0; flex-wrap:wrap; overflow:visible; }
+.collections-chips .collection-pill {
+  min-height:46px; padding:7px 15px 7px 8px; gap:9px;
+  border:1px solid #DFCCB0; border-radius:999px;
+  background:#F6ECD9; color:#725B4E; font-size:13px; font-weight:600;
+}
+.collections-chips .collection-pill b {
+  order:-1; min-width:30px; height:30px; padding:0 8px;
+  display:grid; place-items:center; border-radius:999px;
+  background:#DFCAA7; color:#674739; font-size:13px;
+}
+.collections-chips .collection-pill.active { background:#71343C; border-color:#71343C; color:white; }
+.collections-chips .collection-pill.active b { background:#E3CAA0; color:#5F3034; }
+.library-grid-tools { max-width:none; margin:24px 0 16px; padding:0 46px; }
+.library-result-count { color:#816B60; font-size:13px; }
+.library-grid-tools .segmented { padding:4px; border:1px solid #DFCCB0; border-radius:14px; background:#F0E2CB; }
+.library-grid-tools .segmented button { padding:10px 17px; border-radius:10px; color:#816B60; }
+.library-grid-tools .segmented button.active { background:#FFF8EC; color:#302622; }
+.book-grid { max-width:none; margin:0; padding:0 46px; grid-template-columns:repeat(4,minmax(170px,1fr)); gap:22px; }
+.book-card { padding:13px; border:1px solid #DFCCB0; border-radius:16px; background:rgba(255,252,245,.88); box-shadow:0 10px 25px rgba(48,38,34,.07); }
+.book-cover { border-radius:9px; box-shadow:0 13px 23px rgba(48,38,34,.18); }
+.book-title { margin-top:2px; font:700 23px/1 "Cormorant Garamond",Georgia,serif; }
+.book-author { color:#816B60; }
+
+.library-view.library-sidebar-collapsed { grid-template-columns:0 minmax(0,1fr); }
+.library-sidebar-show { left:14px; top:14px; width:46px; height:46px; transform:none; border:0; border-radius:14px; background:#302622; color:white; }
+
+@media (max-width:1180px) {
+  .book-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .library-header { grid-template-columns:1fr auto; }
+  .library-heading { grid-column:1/-1; }
+  .library-hero-copy { width:60%; }
+  .library-hero-stage { right:-2%; width:45%; }
+}
+@media (max-width:900px) {
+  .library-view,.library-view.library-sidebar-collapsed { display:block; }
+  .library-sidebar { position:fixed; width:min(320px,88vw); transform:translateX(-105%); opacity:1; pointer-events:none; transition:transform .25s; }
+  .library-view.library-sidebar-mobile-open .library-sidebar { transform:none; pointer-events:auto; }
+  .library-sidebar-show { display:none!important; }
+  .library-mobile-menu { display:grid; }
+  .library-brandbar { min-height:86px; height:86px; padding:14px 18px; }
+  .brandline strong { font-size:24px; }
+  .vintage-label,.library-brandbar .sync-status { display:none; }
+  .library-header { padding:28px 18px; }
+  .library-header h1 { font-size:46px; }
+  .library-heading-tools { width:100%; grid-template-columns:1fr auto; }
+  .library-hero { margin:0 18px; min-height:520px; }
+  .library-hero-copy { width:100%; padding:42px 28px; }
+  .library-hero h2 { max-width:none; font-size:42px; }
+  .library-hero p { display:block; }
+  .library-hero-stage { right:0; top:190px; bottom:auto; width:100%; height:330px; }
+  .library-hero-reflection { right:34%; top:28px; }
+  .library-hero-cover { right:14%; top:25px; }
+  .reading-list-section,.library-grid-tools,.book-grid { padding-left:18px; padding-right:18px; }
+  .book-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:520px) {
+  .library-brandbar .account-btn { display:none; }
+  .library-brandbar #settingsBtn { display:none; }
+  .library-header { display:block; }
+  .library-header h1 { white-space:normal; }
+  .library-heading-tools { margin-top:18px; gap:12px; }
+  .library-heading-tools .primary-btn { width:52px; padding:0; }
+  .library-heading-tools .primary-btn { font-size:0; }
+  .library-heading-tools .primary-btn:first-letter { font-size:20px; }
+  .library-hero h2 { font-size:36px; }
+  .library-hero-copy { padding:36px 22px; }
+  .library-hero-cover { right:7%; width:180px; }
+  .library-hero-reflection { right:32%; width:200px; height:270px; }
+  .hero-progress-card { right:10px; }
+  .book-grid { grid-template-columns:1fr; }
+}

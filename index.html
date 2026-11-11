@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.4.2" />
-  <link rel="stylesheet" href="styles.css?v=1.4.2" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.5.0" />
+  <link rel="stylesheet" href="styles.css?v=1.5.0" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -19,21 +19,35 @@
           <div class="brand-row"><div class="brand-mark">R</div><span class="brand-name">Reader Studio</span></div>
           <button id="librarySidebarHideBtn" class="icon-btn compact sidebar-toggle" title="Ẩn sidebar" aria-label="Ẩn sidebar" aria-expanded="true">‹</button>
         </div>
-        <nav class="library-nav" aria-label="Khu vực chính">
-          <div class="library-sidebar-label sidebar-label-first">TỔNG</div>
-          <button class="library-nav-tab active" data-library-panel="books"><span aria-hidden="true">▥</span><b>Tất cả sách</b></button>
-          <button class="library-nav-tab" data-library-panel="notebooks"><span aria-hidden="true">▤</span><b>Ghi chú chung</b></button>
-        </nav>
-        <div class="library-sidebar-label">NHÓM / READING LIST</div>
-        <div id="collectionsBar" class="collections-bar" aria-label="Reading list và nhóm sách"></div>
-        <div class="library-sidebar-foot"><span class="sidebar-sync-dot"></span> Reader Studio <span>1.4.2</span></div>
+        <div class="library-sidebar-scroll">
+          <nav class="library-nav" aria-label="Khu vực chính">
+            <div class="library-sidebar-label sidebar-label-first">TỔNG</div>
+            <button class="library-nav-tab active" data-library-panel="books"><span aria-hidden="true">▥</span><b>Tất cả sách</b></button>
+            <button class="library-nav-tab" data-library-panel="notebooks"><span aria-hidden="true">▤</span><b>Ghi chú chung</b></button>
+          </nav>
+
+          <button id="collectionsSectionToggle" class="library-section-toggle" type="button" data-library-section="collectionsPanel" aria-expanded="true">
+            <span>NHÓM / READING LIST</span><i aria-hidden="true">▶</i>
+          </button>
+          <div id="collectionsPanel" class="library-section-panel">
+            <div id="collectionsBar" class="collections-bar" aria-label="Reading list và nhóm sách"></div>
+          </div>
+
+          <button id="authorsSectionToggle" class="library-section-toggle" type="button" data-library-section="authorsPanel" aria-expanded="true">
+            <span>TÁC GIẢ</span><i aria-hidden="true">▶</i>
+          </button>
+          <div id="authorsPanel" class="library-section-panel">
+            <div id="authorsBar" class="authors-bar" aria-label="Lọc sách theo tác giả"></div>
+          </div>
+        </div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.5.0</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
 
       <div class="library-content">
         <header class="library-brandbar">
-          <div class="brandline"><div class="brand-icon">▣</div><div><strong>Reader Studio</strong><span>Không gian đọc của riêng bạn</span></div></div>
+          <div class="brandline"><div class="brand-icon">▣</div><div><strong>Reader Studio</strong></div></div>
           <div class="library-brandbar-actions">
             <span class="vintage-label">VINTAGE LIBRARY</span>
             <span id="syncStatus" class="sync-status" title="Trạng thái đồng bộ"><i></i><span>Chỉ lưu trên máy</span></span>
@@ -45,7 +59,7 @@
         <header class="library-header">
           <div class="library-heading">
             <button id="librarySidebarMobileBtn" class="icon-btn library-mobile-menu" title="Mở sidebar" aria-label="Mở sidebar">☰</button>
-            <div><h1>Thư viện của bạn</h1><p>PDF & EPUB · đọc, highlight và ghi chú tại một nơi.</p></div>
+            <div><h1>Thư viện của bạn</h1></div>
           </div>
           <div class="library-heading-tools">
             <form class="search-box" role="search" autocomplete="off" onsubmit="return false"><span>⌕</span><input id="librarySearch" type="search" name="book-search-query" placeholder="Tìm sách, tác giả..." autocomplete="new-password" autocapitalize="none" spellcheck="false" aria-autocomplete="none" data-form-type="other" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" readonly /></form>
@@ -319,8 +333,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.4.2"></script>
+  <script src="config.js?v=1.5.0"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.4.2"></script>
+  <script src="app.js?v=1.5.0"></script>
 </body>
 </html>

@@ -52,6 +52,7 @@
     globalNotebookLoaded: false,
     collections: [],
     activeCollectionId: 'all',
+    activeAuthor: 'all',
     editingCollectionId: null,
     collectionReturnBookId: null,
     editingBookId: null,
@@ -62,6 +63,8 @@
     readerLayoutTimer: null,
     readerResizeObserver: null,
     librarySidebarCollapsed: localStorage.getItem('reader-library-sidebar-collapsed') === '1',
+    libraryCollectionsCollapsed: localStorage.getItem('reader-library-collections-collapsed') === '1',
+    libraryAuthorsCollapsed: localStorage.getItem('reader-library-authors-collapsed') === '1',
     supabase: null,
     cloudUser: null,
     cloudConfigured: false,
@@ -81,8 +84,9 @@
   const els = {};
   const cacheEls = () => {
     [
-      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','libraryHero','libraryResultCount',
+      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','libraryResultCount',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
+      'collectionsSectionToggle','authorsSectionToggle','collectionsPanel','authorsPanel',
       'libraryBooksPanel','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
@@ -844,7 +848,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.4.2', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.5.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -902,6 +906,12 @@
     els.librarySidebarHideBtn.addEventListener('click', () => setLibrarySidebar(true));
     els.librarySidebarShowBtn.addEventListener('click', () => setLibrarySidebar(false));
     els.librarySidebarMobileBtn.addEventListener('click', toggleLibrarySidebarMobile);
+    $$('[data-library-section]').forEach(button => button.addEventListener('click', () => {
+      const key = button.dataset.librarySection === 'collectionsPanel' ? 'collections' : 'authors';
+      const panel = document.getElementById(button.dataset.librarySection);
+      const collapsed = !panel.classList.contains('is-collapsed');
+      setLibrarySection(key, collapsed);
+    }));
     els.leftSidebarBtn.addEventListener('click', () => toggleSidebar('left'));
     els.rightSidebarBtn.addEventListener('click', () => toggleSidebar('right'));
     $$('[data-close="left"]').forEach(b => b.addEventListener('click', () => setSidebar('left', false)));
@@ -1126,6 +1136,28 @@
     $$('[data-edit-collection]', els.collectionsBar).forEach(button => button.addEventListener('click', () => openCollectionModal(button.dataset.editCollection)));
   }
 
+  function renderAuthorsBar() {
+    const countByAuthor = new Map();
+    state.books.forEach(book => {
+      const author = String(book.author || 'Không rõ tác giả').trim() || 'Không rõ tác giả';
+      countByAuthor.set(author, (countByAuthor.get(author) || 0) + 1);
+    });
+    const authors = [...countByAuthor.keys()].sort((a, b) => a.localeCompare(b, 'vi'));
+    const row = (author, label, count) => `<button class="author-filter${state.activeAuthor === author ? ' active' : ''}" data-author-filter="${escapeHTML(author)}"><b>${count}</b><span>${escapeHTML(label)}</span></button>`;
+    els.authorsBar.innerHTML = [
+      row('all', 'Tất cả tác giả', state.books.length),
+      ...authors.map(author => row(author, author, countByAuthor.get(author)))
+    ].join('');
+    $$('[data-author-filter]', els.authorsBar).forEach(button => button.addEventListener('click', () => {
+      state.activeAuthor = button.dataset.authorFilter;
+      els.libraryView.classList.remove('library-sidebar-mobile-open');
+      els.libraryBooksPanel.classList.remove('hidden');
+      els.globalNotebookPanel.classList.add('hidden');
+      $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
+      renderLibrary();
+    }));
+  }
+
   function renderLibraryHero() {
     const book = state.books.find(item => Number(item.progress || 0) > 0 && Number(item.progress || 0) < 100) || state.books[0];
     if (!book) {
@@ -1140,10 +1172,10 @@
     els.libraryHero.innerHTML = `<div class="library-hero-copy">
         <div class="library-hero-eyebrow">TIẾP TỤC ĐỌC</div>
         <h2>${escapeHTML(book.title)}</h2>
-        <p>${escapeHTML(book.author || 'Không rõ tác giả')} · Tiếp tục từ vị trí bạn đã dừng lại.</p>
+        <p>${escapeHTML(book.author || 'Không rõ tác giả')}</p>
         <div class="library-hero-actions"><button class="hero-continue" data-hero-open="${escapeHTML(book.id)}">› <span>Đọc tiếp</span></button><b>${progress}% đã đọc</b></div>
       </div>
-      <div class="library-hero-stage"><div class="library-hero-cover">${cover}</div><div class="hero-progress-card"><span>Tiến độ</span><b>${progress}%</b><i><em style="width:${progress}%"></em></i></div></div>`;
+      <div class="library-hero-stage"><div class="library-hero-reflection" aria-hidden="true">${cover}</div><div class="library-hero-cover">${cover}</div><div class="hero-progress-card"><span>Tiến độ</span><b>${progress}%</b><i><em style="width:${progress}%"></em></i></div></div>`;
     els.libraryHero.classList.remove('hidden');
     $('[data-hero-open]', els.libraryHero)?.addEventListener('click', () => openBook(book.id));
   }
@@ -1153,16 +1185,22 @@
     const filter = $('.segmented [data-filter].active')?.dataset.filter || 'all';
     const assigned = new Set(state.collections.flatMap(item => item.bookIds));
     const activeCollection = state.collections.find(item => item.id === state.activeCollectionId);
+    if (state.activeAuthor !== 'all' && !state.books.some(book => (String(book.author || 'Không rõ tác giả').trim() || 'Không rõ tác giả') === state.activeAuthor)) {
+      state.activeAuthor = 'all';
+    }
     const books = state.books.filter(book => {
       const matchesFilter = filter === 'all' || book.type === filter;
       const matchesQuery = !query || `${book.title} ${book.author || ''}`.toLowerCase().includes(query);
+      const author = String(book.author || 'Không rõ tác giả').trim() || 'Không rõ tác giả';
+      const matchesAuthor = state.activeAuthor === 'all' || author === state.activeAuthor;
       const matchesCollection = state.activeCollectionId === 'all'
         || (state.activeCollectionId === 'unfiled' ? !assigned.has(book.id)
           : !!activeCollection?.bookIds.includes(book.id));
-      return matchesFilter && matchesQuery && matchesCollection;
+      return matchesFilter && matchesQuery && matchesCollection && matchesAuthor;
     });
 
     renderCollectionsBar();
+    renderAuthorsBar();
     renderLibraryHero();
     els.libraryResultCount.textContent = `${books.length} cuốn sách`;
     els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query || filter !== 'all');
@@ -1347,6 +1385,7 @@
     els.globalNotebookPanel.classList.toggle('hidden', !showNotebooks);
     if (!showNotebooks) {
       state.activeCollectionId = 'all';
+      state.activeAuthor = 'all';
       renderLibrary();
       if (state.globalNotebookLoaded) await saveGlobalNotebook();
       return;
@@ -2251,6 +2290,21 @@
     els.librarySidebarShowBtn?.classList.toggle('hidden', !state.librarySidebarCollapsed);
     els.librarySidebarHideBtn?.setAttribute('aria-expanded', String(!state.librarySidebarCollapsed));
     els.librarySidebarShowBtn?.setAttribute('aria-expanded', String(!state.librarySidebarCollapsed));
+    setLibrarySection('collections', state.libraryCollectionsCollapsed, false);
+    setLibrarySection('authors', state.libraryAuthorsCollapsed, false);
+  }
+
+  function setLibrarySection(section, collapsed, persist = true) {
+    const isCollections = section === 'collections';
+    const panel = isCollections ? els.collectionsPanel : els.authorsPanel;
+    const toggle = isCollections ? els.collectionsSectionToggle : els.authorsSectionToggle;
+    if (!panel || !toggle) return;
+    panel.classList.toggle('is-collapsed', !!collapsed);
+    toggle.classList.toggle('is-collapsed', !!collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    if (isCollections) state.libraryCollectionsCollapsed = !!collapsed;
+    else state.libraryAuthorsCollapsed = !!collapsed;
+    if (persist) localStorage.setItem(`reader-library-${section}-collapsed`, collapsed ? '1' : '0');
   }
 
   function setLibrarySidebar(collapsed) {
