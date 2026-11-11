@@ -27,7 +27,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+html, body { margin: 0; height: 100%; max-width:100%; overflow-x:hidden; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body {
   font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
@@ -44,6 +44,7 @@ body.dark {
 }
 
 .app-shell, .view { min-height: 100vh; }
+.app-shell { width:100%; max-width:100%; overflow-x:hidden; }
 .library-view { max-width: 1440px; margin: 0 auto; padding: 38px 48px 70px; }
 .library-header { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; }
 .brand-row { display:flex; align-items:center; gap:10px; margin-bottom:30px; }
