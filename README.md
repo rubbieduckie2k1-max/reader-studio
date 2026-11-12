@@ -1,8 +1,8 @@
-# Reader Studio 1.7.2
+# Reader Studio 1.7.3
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.7.2 giữ nguyên toàn bộ chức năng đọc PDF/EPUB, highlight, underline, note, notebook, bookmark, thay bìa, Reading List, pin sách, lịch sử hoàn thành và Supabase sync. Giao diện thư viện dùng bìa cố định tỷ lệ 2:3, chọn 1–5 sách mỗi hàng; chế độ 1–3 luôn hiện tên/tác giả, còn 4–5 chỉ hiện thông tin khi hover hoặc chạm. Bộ đếm tác giả dùng số tác giả duy nhất, Status sách có danh sách gọn chỉ gồm tên sách và tác giả. Giao diện Vintage Library dùng nền giấy #FFF9EF, sidebar walnut, hỗ trợ dark mode, mobile và điều chỉnh kích thước UI 80–110%.
+Phiên bản 1.7.3 giữ nguyên toàn bộ chức năng đọc PDF/EPUB, highlight, underline, note, notebook, bookmark, thay bìa, Reading List, pin sách, lịch sử hoàn thành và Supabase sync. Giao diện thư viện dùng bìa cố định tỷ lệ 2:3, chọn 1–5 sách mỗi hàng; chế độ 1–3 luôn hiện tên/tác giả, còn 4–5 chỉ hiện thông tin khi hover hoặc chạm. Chế độ 1–3 sách tự giới hạn chiều rộng và căn giữa để bìa không bị phóng quá lớn. Bộ đếm tác giả dùng số tác giả duy nhất, Status sách có danh sách gọn chỉ gồm tên sách và tác giả. Giao diện Vintage Library dùng nền giấy #FFF9EF, sidebar walnut, hỗ trợ dark mode, mobile và điều chỉnh kích thước UI 80–110%.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.7.2 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.7.3 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.7.2 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.7.3 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
