@@ -1336,3 +1336,68 @@ body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { c
 @media (max-width:1180px) { .book-grid { grid-template-columns:repeat(var(--library-cols,4),minmax(0,1fr)); } }
 @media (max-width:900px) { .view-control-group:first-child { display:flex; } .library-view[data-grid-columns="1"] .book-grid { max-width:470px; grid-template-columns:minmax(0,1fr); } .library-view:not([data-grid-columns="1"]) .book-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:520px) { .book-grid,.library-view:not([data-grid-columns="1"]) .book-grid { grid-template-columns:1fr; } .book-card { display:block; min-height:0; aspect-ratio:2/3; } .book-card .book-cover { min-height:0; } .status-book-row { display:flex; min-height:50px; } }
+
+/* Reader Studio 1.7.4 — mobile library */
+.mobile-grid-fixed { display:none; align-items:center; gap:7px; min-height:40px; padding:0 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface-3); color:var(--accent); font-size:10px; font-weight:850; white-space:nowrap; }
+.mobile-grid-fixed::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--accent); }
+.mobile-book-sheet-backdrop { position:fixed; z-index:1190; inset:0; background:rgba(31,22,19,.55); opacity:0; transition:opacity .22s ease; }
+.mobile-book-sheet-backdrop.open { opacity:1; }
+.mobile-book-sheet { position:fixed; z-index:1200; left:0; right:0; bottom:0; padding:12px 18px calc(18px + env(safe-area-inset-bottom)); border:1px solid var(--line); border-bottom:0; border-radius:24px 24px 0 0; background:var(--surface); color:var(--text); box-shadow:0 -20px 55px rgba(31,22,19,.24); transform:translateY(105%); transition:transform .24s ease; }
+.mobile-book-sheet.open { transform:none; }
+.mobile-book-sheet-grip { width:44px; height:5px; margin:0 auto 17px; border-radius:99px; background:var(--line); }
+.mobile-book-sheet-info { display:grid; grid-template-columns:70px minmax(0,1fr); gap:14px; align-items:center; }
+.mobile-book-sheet-cover { width:70px; aspect-ratio:2/3; overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); box-shadow:0 8px 18px rgba(48,38,34,.14); }
+.mobile-book-sheet-cover img,.mobile-book-sheet-cover .cover-fallback { width:100%; height:100%; object-fit:cover; }
+.mobile-book-sheet-cover .cover-fallback { padding:9px; }
+.mobile-book-sheet-cover .cover-fallback strong { font-size:11px; }
+.mobile-book-sheet-cover .cover-fallback span { font-size:7px; }
+.mobile-book-sheet-info h3 { margin:0; font:700 25px/1 "Cormorant Garamond",Georgia,serif; }
+.mobile-book-sheet-info p { margin:6px 0 0; color:var(--muted); font-size:12px; }
+.mobile-book-sheet-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:18px; }
+.mobile-book-sheet-actions button { min-width:0; min-height:48px; border-radius:13px; }
+.mobile-book-sheet-actions .primary-btn { grid-column:1/-1; background:var(--accent); color:var(--surface); }
+
+@media (max-width:700px) {
+  body.mobile-book-sheet-open { overflow:hidden; }
+  .library-view .book-grid,
+  .library-view[data-grid-columns="1"] .book-grid,
+  .library-view[data-grid-columns="2"] .book-grid,
+  .library-view[data-grid-columns="3"] .book-grid,
+  .library-view[data-grid-columns="4"] .book-grid,
+  .library-view[data-grid-columns="5"] .book-grid { max-width:none; margin-left:0; margin-right:0; grid-template-columns:repeat(3,minmax(0,1fr))!important; gap:18px 8px; align-items:start; }
+  .view-control-group[aria-label="Số sách mỗi hàng"] { display:none!important; }
+  .mobile-grid-fixed { display:flex; }
+  .library-view-controls { width:100%; align-items:center; justify-content:space-between; }
+  .library-grid-tools { align-items:center; gap:10px; }
+  .book-card { display:flex; flex-direction:column; gap:7px; width:100%; min-width:0; min-height:0; aspect-ratio:auto; padding:0; overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; isolation:auto; }
+  .book-card::after { display:none; }
+  .book-card .book-cover { position:relative; inset:auto; flex:0 0 auto; width:100%; height:auto; min-height:0; aspect-ratio:2/3; overflow:hidden; border:1px solid #CFB48E; border-radius:8px; background:#765846; box-shadow:0 7px 15px rgba(48,38,34,.18); }
+  .book-card .book-cover::after { content:""; position:absolute; z-index:2; inset:4px; border:1px solid rgba(255,249,239,.3); border-radius:4px; pointer-events:none; }
+  .book-card .book-cover img,.book-card .cover-fallback { width:100%; height:100%; object-fit:cover; }
+  .book-card .cover-fallback { padding:10%; }
+  .book-card .cover-fallback strong { font-size:clamp(12px,4.5vw,20px); }
+  .book-card .cover-fallback span { font-size:7px; }
+  .book-card-actions { display:none; }
+  .book-meta,
+  .library-view[data-grid-columns="4"] .book-meta,
+  .library-view[data-grid-columns="5"] .book-meta { position:static; min-height:49px; padding:0; display:flex; flex-direction:column; justify-content:flex-start; background:none; backdrop-filter:none; opacity:1; transform:none; pointer-events:auto; transition:none; }
+  .book-card .book-title { min-height:29px; margin:0; color:var(--text); font:700 13px/1.12 "Cormorant Garamond",Georgia,serif; -webkit-line-clamp:2; }
+  .book-card .book-author { margin:3px 0 6px; color:var(--muted); font-size:9px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .book-card .mini-progress { gap:4px; }
+  .book-card .mini-progress-track { height:3px; }
+  .book-card .mini-progress > span { color:var(--muted); font-size:8px; }
+  body.dark .book-card .book-title { color:var(--text); }
+  body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { color:var(--muted); }
+}
+
+@media (max-width:345px) {
+  .library-view .book-grid,
+  .library-view[data-grid-columns="1"] .book-grid,
+  .library-view[data-grid-columns="2"] .book-grid,
+  .library-view[data-grid-columns="3"] .book-grid,
+  .library-view[data-grid-columns="4"] .book-grid,
+  .library-view[data-grid-columns="5"] .book-grid { gap:15px 7px; }
+  .book-card .book-title { font-size:12px; }
+  .book-card .book-author { font-size:8px; }
+  .mobile-grid-fixed { padding:0 9px; font-size:9px; }
+}

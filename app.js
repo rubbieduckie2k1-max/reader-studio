@@ -53,6 +53,7 @@
     globalNotebookLoaded: false,
     collections: [],
     pinnedBookId: null,
+    mobileBookId: null,
     activeCollectionId: 'all',
     activeAuthor: 'all',
     libraryGridColumns: clamp(Number(localStorage.getItem('reader-library-grid-columns')) || 4, 1, 5),
@@ -108,7 +109,8 @@
       'bookCollectionChoices','bookCreateCollectionBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
       'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
       'signUpBtn','signInBtn','forgotPasswordBtn','resetPasswordPanel','resetPasswordIntro','newPassword','confirmNewPassword','resetPasswordMessage',
-      'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn','toast'
+      'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn',
+      'mobileBookSheetBackdrop','mobileBookSheet','mobileBookSheetCover','mobileBookSheetTitle','mobileBookSheetAuthor','mobileBookSheetProgress','mobileBookOpenBtn','mobileBookPinBtn','mobileBookSettingsBtn','toast'
     ].forEach(id => els[id] = document.getElementById(id));
   };
 
@@ -858,7 +860,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.7.3', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.7.4', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -923,6 +925,24 @@
       localStorage.setItem('reader-library-grid-columns', String(state.libraryGridColumns));
       applyLibraryGridSettings();
     }));
+    els.mobileBookSheetBackdrop?.addEventListener('click', closeMobileBookSheet);
+    els.mobileBookOpenBtn?.addEventListener('click', async () => {
+      const book = state.books.find(item => item.id === state.mobileBookId);
+      closeMobileBookSheet();
+      if (!book) return;
+      if (Number(book.progress || 0) >= 99.5) await restartBook(book.id);
+      else await openBook(book.id);
+    });
+    els.mobileBookPinBtn?.addEventListener('click', async () => {
+      const bookId = state.mobileBookId;
+      closeMobileBookSheet();
+      if (bookId) await pinBook(bookId);
+    });
+    els.mobileBookSettingsBtn?.addEventListener('click', () => {
+      const bookId = state.mobileBookId;
+      closeMobileBookSheet();
+      if (bookId) openBookSettings(bookId);
+    });
 
     els.libraryThemeBtn.addEventListener('click', toggleTheme);
     els.readerThemeBtn.addEventListener('click', toggleTheme);
@@ -1324,6 +1344,10 @@
     $$('.book-card', els.bookGrid).forEach(card => {
       card.addEventListener('click', e => {
         if (e.target.closest('.card-menu,.card-pin')) return;
+        if (matchMedia('(max-width:700px)').matches) {
+          openMobileBookSheet(card.dataset.bookId);
+          return;
+        }
         if (state.libraryGridColumns >= 4 && matchMedia('(hover:none)').matches && !card.classList.contains('info-visible')) {
           $$('.book-card.info-visible', els.bookGrid).forEach(item => item.classList.remove('info-visible'));
           card.classList.add('info-visible');
@@ -1340,6 +1364,43 @@
         pinBook(card.dataset.bookId);
       });
     });
+  }
+
+  function openMobileBookSheet(bookId) {
+    const book = state.books.find(item => item.id === bookId);
+    if (!book || !els.mobileBookSheet) return;
+    state.mobileBookId = bookId;
+    els.mobileBookSheetCover.innerHTML = book.cover
+      ? `<img src="${book.cover}" alt="" />`
+      : `<div class="cover-fallback"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Reader Studio')}</span></div>`;
+    els.mobileBookSheetTitle.textContent = book.title;
+    els.mobileBookSheetAuthor.textContent = book.author || 'Không rõ tác giả';
+    const progress = Math.round(book.progress || 0);
+    els.mobileBookSheetProgress.textContent = `${progress}% đã đọc`;
+    els.mobileBookOpenBtn.textContent = progress >= 100 ? '↻ Đọc lại từ đầu' : progress > 0 ? '▶ Đọc tiếp' : '▶ Bắt đầu đọc';
+    els.mobileBookPinBtn.textContent = state.pinnedBookId === book.id ? '⌖ Bỏ ghim' : '⌖ Ghim sách';
+    els.mobileBookSheetBackdrop.classList.remove('hidden');
+    els.mobileBookSheet.classList.remove('hidden');
+    document.body.classList.add('mobile-book-sheet-open');
+    requestAnimationFrame(() => {
+      els.mobileBookSheetBackdrop.classList.add('open');
+      els.mobileBookSheet.classList.add('open');
+    });
+    els.mobileBookSheet.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeMobileBookSheet() {
+    if (!els.mobileBookSheet) return;
+    els.mobileBookSheetBackdrop.classList.remove('open');
+    els.mobileBookSheet.classList.remove('open');
+    document.body.classList.remove('mobile-book-sheet-open');
+    els.mobileBookSheet.setAttribute('aria-hidden', 'true');
+    setTimeout(() => {
+      if (!els.mobileBookSheet.classList.contains('open')) {
+        els.mobileBookSheetBackdrop.classList.add('hidden');
+        els.mobileBookSheet.classList.add('hidden');
+      }
+    }, 240);
   }
 
   function renderStatusPanel() {

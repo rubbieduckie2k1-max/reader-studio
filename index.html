@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.7.3" />
-  <link rel="stylesheet" href="styles.css?v=1.7.3" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.7.4" />
+  <link rel="stylesheet" href="styles.css?v=1.7.4" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -33,7 +33,7 @@
           <div id="collectionsBar" class="hidden" aria-hidden="true"></div>
           <div id="authorsBar" class="hidden" aria-hidden="true"></div>
         </div>
-        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.7.3</span></div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.7.4</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -73,6 +73,7 @@
             <div class="library-result-count">Hiển thị <strong id="libraryResultCount">0 cuốn sách</strong></div>
             <div class="library-view-controls">
               <div class="view-control-group" aria-label="Số sách mỗi hàng"><span>Mỗi hàng</span><button data-grid-cols="1">1</button><button data-grid-cols="2">2</button><button data-grid-cols="3">3</button><button data-grid-cols="4">4</button><button data-grid-cols="5">5</button></div>
+              <span class="mobile-grid-fixed" aria-label="Mobile cố định ba sách mỗi hàng">Mobile: 3 sách/hàng</span>
               <div class="segmented small"><button class="active" data-filter="all">Tất cả</button><button data-filter="pdf">PDF</button><button data-filter="epub">EPUB</button></div>
             </div>
           </div>
@@ -351,10 +352,24 @@
     <div class="modal-actions split-actions"><button id="deleteCollectionBtn" class="danger-btn hidden" type="button">Xóa nhóm</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveCollectionBtn" class="primary-btn" type="button">Lưu nhóm</button></div></div>
   </div>
 
+  <div id="mobileBookSheetBackdrop" class="mobile-book-sheet-backdrop hidden"></div>
+  <aside id="mobileBookSheet" class="mobile-book-sheet hidden" aria-hidden="true">
+    <div class="mobile-book-sheet-grip"></div>
+    <div class="mobile-book-sheet-info">
+      <div id="mobileBookSheetCover" class="mobile-book-sheet-cover"></div>
+      <div><h3 id="mobileBookSheetTitle"></h3><p id="mobileBookSheetAuthor"></p><p id="mobileBookSheetProgress"></p></div>
+    </div>
+    <div class="mobile-book-sheet-actions">
+      <button id="mobileBookOpenBtn" class="primary-btn" type="button">▶ Đọc tiếp</button>
+      <button id="mobileBookPinBtn" class="secondary-btn" type="button">⌖ Ghim sách</button>
+      <button id="mobileBookSettingsBtn" class="secondary-btn" type="button">••• Tùy chỉnh</button>
+    </div>
+  </aside>
+
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.7.3"></script>
+  <script src="config.js?v=1.7.4"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.7.3"></script>
+  <script src="app.js?v=1.7.4"></script>
 </body>
 </html>
