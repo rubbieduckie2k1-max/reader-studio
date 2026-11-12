@@ -55,8 +55,7 @@
     pinnedBookId: null,
     activeCollectionId: 'all',
     activeAuthor: 'all',
-    libraryGridColumns: clamp(Number(localStorage.getItem('reader-library-grid-columns')) || 4, 2, 5),
-    libraryCardSize: ['compact','normal','large'].includes(localStorage.getItem('reader-library-card-size')) ? localStorage.getItem('reader-library-card-size') : 'normal',
+    libraryGridColumns: clamp(Number(localStorage.getItem('reader-library-grid-columns')) || 4, 1, 5),
     editingCollectionId: null,
     collectionReturnBookId: null,
     editingBookId: null,
@@ -859,7 +858,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.7.0', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.7.2', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -920,13 +919,8 @@
       renderLibrary();
     }));
     $$('[data-grid-cols]').forEach(button => button.addEventListener('click', () => {
-      state.libraryGridColumns = clamp(Number(button.dataset.gridCols), 2, 5);
+      state.libraryGridColumns = clamp(Number(button.dataset.gridCols), 1, 5);
       localStorage.setItem('reader-library-grid-columns', String(state.libraryGridColumns));
-      applyLibraryGridSettings();
-    }));
-    $$('[data-card-size]').forEach(button => button.addEventListener('click', () => {
-      state.libraryCardSize = button.dataset.cardSize;
-      localStorage.setItem('reader-library-card-size', state.libraryCardSize);
       applyLibraryGridSettings();
     }));
 
@@ -1135,9 +1129,8 @@
   function applyLibraryGridSettings() {
     if (!els.libraryView) return;
     els.libraryView.style.setProperty('--library-cols', String(state.libraryGridColumns));
-    els.libraryView.dataset.cardSize = state.libraryCardSize;
+    els.libraryView.dataset.gridColumns = String(state.libraryGridColumns);
     $$('[data-grid-cols]').forEach(button => button.classList.toggle('active', Number(button.dataset.gridCols) === state.libraryGridColumns));
-    $$('[data-card-size]').forEach(button => button.classList.toggle('active', button.dataset.cardSize === state.libraryCardSize));
   }
 
   async function refreshLibrary() {
@@ -1257,7 +1250,7 @@
     els.authorsBar.innerHTML = '';
     if (els.authorFilterSelect) {
       els.authorFilterSelect.innerHTML = [
-        `<option value="all">Tất cả tác giả (${state.books.length})</option>`,
+        `<option value="all">Tất cả tác giả (${authors.length})</option>`,
         ...authors.map(author => `<option value="${escapeHTML(author)}">${escapeHTML(author)} (${countByAuthor.get(author)})</option>`)
       ].join('');
       els.authorFilterSelect.value = state.activeAuthor;
@@ -1316,13 +1309,13 @@
     els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query || filter !== 'all');
     els.bookGrid.innerHTML = books.length ? books.map(book => {
       const progress = Math.round(book.progress || 0);
-      const completed = completionCount(book);
       const cover = book.cover
         ? `<img src="${book.cover}" alt="" />`
         : `<div class="cover-fallback"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Reader Studio')}</span></div>`;
-      return `<article class="book-card" data-book-id="${book.id}">
-        <div class="book-cover">${cover}<span class="format-badge">${book.type.toUpperCase()}</span></div>
-        <div class="book-meta"><div class="book-card-actions"><button class="card-pin${state.pinnedBookId === book.id ? ' active' : ''}" title="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-label="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-pressed="${state.pinnedBookId === book.id}" data-pin-book><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 4 6 6-3 1-4 4-1 5-2-2-4 4-1-1 4-4-2-2 5-1 4-4 1-3Z"/></svg></button><button class="card-menu" title="Đổi bìa và sắp xếp sách" aria-label="Tùy chỉnh sách">•••</button></div><div class="book-title">${escapeHTML(book.title)}</div><div class="book-author">${escapeHTML(book.author || 'Không rõ tác giả')}</div><div class="book-card-tags"><span>${book.type.toUpperCase()}</span>${completed ? `<span class="completed-tag">Đã xong ×${completed}</span>` : ''}</div>
+      return `<article class="book-card" data-book-id="${book.id}" tabindex="0">
+        <div class="book-cover">${cover}</div>
+        <div class="book-card-actions"><button class="card-pin${state.pinnedBookId === book.id ? ' active' : ''}" title="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-label="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-pressed="${state.pinnedBookId === book.id}" data-pin-book><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 4 6 6-3 1-4 4-1 5-2-2-4 4-1-1 4-4-2-2 5-1 4-4 1-3Z"/></svg></button><button class="card-menu" title="Đổi bìa và sắp xếp sách" aria-label="Tùy chỉnh sách">•••</button></div>
+        <div class="book-meta"><div class="book-title">${escapeHTML(book.title)}</div><div class="book-author">${escapeHTML(book.author || 'Không rõ tác giả')}</div>
           <div class="mini-progress"><div class="mini-progress-track"><span style="width:${progress}%"></span></div><span>${progress}%</span></div>
         </div>
       </article>`;
@@ -1331,6 +1324,11 @@
     $$('.book-card', els.bookGrid).forEach(card => {
       card.addEventListener('click', e => {
         if (e.target.closest('.card-menu,.card-pin')) return;
+        if (state.libraryGridColumns >= 4 && matchMedia('(hover:none)').matches && !card.classList.contains('info-visible')) {
+          $$('.book-card.info-visible', els.bookGrid).forEach(item => item.classList.remove('info-visible'));
+          card.classList.add('info-visible');
+          return;
+        }
         openBook(card.dataset.bookId);
       });
       $('.card-menu', card).addEventListener('click', e => {
@@ -1354,20 +1352,12 @@
     els.statusNeverCompleted.textContent = String(incomplete.length);
     els.statusCompletedBadge.textContent = String(completed.length);
     els.statusIncompleteBadge.textContent = String(incomplete.length);
-    const cover = book => book.cover ? `<img src="${book.cover}" alt="" />` : `<span>${escapeHTML((book.title || 'S').slice(0, 1))}</span>`;
     els.statusCompletedList.innerHTML = completed.length ? completed.map(book => {
-      const count = completionCount(book);
-      const date = book.lastCompletedAt ? new Intl.DateTimeFormat('vi-VN').format(new Date(book.lastCompletedAt)) : 'Đã hoàn thành';
-      return `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><div class="status-book-cover">${cover(book)}</div><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span><small>${date} · Tiến độ hiện tại ${Math.round(book.progress || 0)}%</small></div><div class="status-book-actions"><b>${count} lần</b><button data-status-reread="${escapeHTML(book.id)}">↻ Đọc lại</button></div></article>`;
+      return `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><span class="status-dot"></span><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span></div></article>`;
     }).join('') : '<div class="status-empty">Chưa có cuốn sách nào được đọc xong.</div>';
-    els.statusIncompleteList.innerHTML = incomplete.length ? incomplete.map(book => `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><div class="status-book-cover">${cover(book)}</div><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span><small>Tiến độ ${Math.round(book.progress || 0)}%</small></div><div class="status-book-actions"><b>${Math.round(book.progress || 0)}%</b><button>Mở sách</button></div></article>`).join('') : `<div class="status-empty">${state.books.length ? 'Tất cả sách đều đã được hoàn thành ít nhất một lần.' : 'Chưa có sách trong thư viện.'}</div>`;
+    els.statusIncompleteList.innerHTML = incomplete.length ? incomplete.map(book => `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><span class="status-dot"></span><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span></div></article>`).join('') : `<div class="status-empty">${state.books.length ? 'Tất cả sách đều đã được hoàn thành ít nhất một lần.' : 'Chưa có sách trong thư viện.'}</div>`;
     $$('[data-status-open]', els.libraryStatusPanel).forEach(row => row.addEventListener('click', e => {
-      if (e.target.closest('[data-status-reread]')) return;
       openBook(row.dataset.statusOpen);
-    }));
-    $$('[data-status-reread]', els.libraryStatusPanel).forEach(button => button.addEventListener('click', e => {
-      e.stopPropagation();
-      restartBook(button.dataset.statusReread);
     }));
   }
 

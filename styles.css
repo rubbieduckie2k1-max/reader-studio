@@ -1019,6 +1019,174 @@ body.dark .library-sidebar { background:#1E1816; }
   .book-grid { grid-template-columns:1fr; }
 }
 
+/* Reader Studio 1.7.2 — fixed-ratio cover grid and compact status lists */
+.book-grid {
+  grid-template-columns:repeat(var(--library-cols,4),minmax(0,1fr));
+  align-items:start;
+  gap:22px;
+}
+.library-view[data-grid-columns="1"] .book-grid {
+  grid-template-columns:minmax(260px,390px);
+  justify-content:center;
+}
+.book-card {
+  position:relative;
+  display:block;
+  min-width:0;
+  min-height:0;
+  width:100%;
+  aspect-ratio:2/3;
+  padding:0;
+  overflow:hidden;
+  border:1px solid #CFB48E;
+  border-radius:12px;
+  background:#765846;
+  box-shadow:0 13px 27px rgba(48,38,34,.18);
+  isolation:isolate;
+}
+.book-card::after {
+  content:"";
+  position:absolute;
+  z-index:2;
+  inset:8px;
+  border:1px solid rgba(255,249,239,.32);
+  border-radius:7px;
+  pointer-events:none;
+}
+.book-card:hover { transform:none; }
+.book-card:hover .book-cover { transform:none; box-shadow:none; }
+.book-card .book-cover {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  min-height:0;
+  aspect-ratio:2/3;
+  border-radius:0;
+  box-shadow:none;
+  background:#765846;
+}
+.book-card .book-cover img,.book-card .cover-fallback {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.book-card .cover-fallback { padding:16%; }
+.book-card-actions {
+  position:absolute;
+  z-index:6;
+  top:11px;
+  right:11px;
+  display:flex;
+  gap:6px;
+  margin:0;
+}
+.book-card .card-menu,.book-card .card-pin {
+  position:static;
+  width:32px;
+  height:32px;
+  opacity:1;
+  border:1px solid rgba(255,249,239,.75);
+  border-radius:9px;
+  background:rgba(255,249,239,.9);
+  color:#6A4D40;
+  box-shadow:0 4px 12px rgba(48,38,34,.12);
+  backdrop-filter:blur(6px);
+}
+.book-card .card-menu { opacity:0; }
+.book-card:hover .card-menu,.book-card:focus-within .card-menu { opacity:1; }
+.book-card .card-pin.active { background:#71343C; border-color:#71343C; color:#FFF9EF; }
+.book-meta {
+  position:absolute;
+  z-index:4;
+  left:0;
+  right:0;
+  bottom:0;
+  min-height:45%;
+  padding:48px 15px 15px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  background:linear-gradient(to top,rgba(255,249,239,.98) 0%,rgba(255,249,239,.92) 58%,rgba(255,249,239,.1) 100%);
+  backdrop-filter:blur(1.5px);
+  transition:opacity .2s ease,transform .2s ease;
+}
+.book-card .book-title {
+  margin:0;
+  color:#302622;
+  font:700 clamp(19px,1.55vw,27px)/.98 "Cormorant Garamond",Georgia,serif;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.book-card .book-author {
+  margin:7px 0 12px;
+  color:#6F574C;
+  font-size:clamp(9px,.76vw,12px);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.book-card .mini-progress { margin-top:0; }
+.book-card .mini-progress > span { color:#6F574C; }
+.library-view[data-grid-columns="4"] .book-meta,
+.library-view[data-grid-columns="5"] .book-meta {
+  opacity:0;
+  transform:translateY(24px);
+  pointer-events:none;
+}
+.library-view[data-grid-columns="4"] .book-card:hover .book-meta,
+.library-view[data-grid-columns="4"] .book-card:focus-within .book-meta,
+.library-view[data-grid-columns="4"] .book-card.info-visible .book-meta,
+.library-view[data-grid-columns="5"] .book-card:hover .book-meta,
+.library-view[data-grid-columns="5"] .book-card:focus-within .book-meta,
+.library-view[data-grid-columns="5"] .book-card.info-visible .book-meta {
+  opacity:1;
+  transform:none;
+  pointer-events:auto;
+}
+.format-badge,.book-card-tags { display:none!important; }
+
+.status-summary { display:none; }
+.status-list-head span { display:none; }
+.status-columns { gap:20px; }
+.status-columns > section { padding:22px; }
+.status-book-list { gap:7px; }
+.status-book-row {
+  min-height:50px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:8px 12px;
+  border-radius:12px;
+}
+.status-dot { width:8px; height:8px; flex:0 0 auto; border-radius:50%; background:#7C3741; }
+.status-book-copy { min-width:0; display:block; }
+.status-book-copy strong,.status-book-copy span { display:block; }
+.status-book-copy strong { font-size:18px; line-height:1.05; }
+.status-book-copy span { margin-top:3px; font-size:10px; }
+.status-book-cover,.status-book-actions,.status-book-copy small { display:none!important; }
+
+body.dark .book-meta { background:linear-gradient(to top,rgba(255,249,239,.98) 0%,rgba(255,249,239,.92) 58%,rgba(255,249,239,.1) 100%); }
+body.dark .book-card .book-title { color:#302622; }
+body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { color:#6F574C; }
+
+@media (max-width:1180px) {
+  .book-grid { grid-template-columns:repeat(var(--library-cols,4),minmax(0,1fr)); }
+}
+@media (max-width:900px) {
+  .view-control-group:first-child { display:flex; }
+  .library-view[data-grid-columns="1"] .book-grid { grid-template-columns:minmax(0,1fr); }
+  .library-view:not([data-grid-columns="1"]) .book-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:520px) {
+  .book-grid,.library-view:not([data-grid-columns="1"]) .book-grid { grid-template-columns:1fr; }
+  .book-card { display:block; min-height:0; aspect-ratio:2/3; }
+  .book-card .book-cover { min-height:0; }
+  .status-book-row { display:flex; min-height:50px; }
+}
+
 /* Reader Studio 1.7.0 — pinned library, status tracking and compact filters */
 .library-nav-tab { display:flex; align-items:center; gap:12px; text-align:left; }
 .library-nav-icon { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; }
@@ -1127,3 +1295,42 @@ body.dark .status-header .eyebrow { color:#D4BE9D; }
   .status-book-cover { width:48px; height:64px; }
   .status-book-actions { grid-column:2; grid-row:2; display:flex; align-items:center; justify-content:space-between; width:100%; }
 }
+
+/* Reader Studio 1.7.2 final overrides */
+.book-grid { grid-template-columns:repeat(var(--library-cols,4),minmax(0,1fr)); align-items:start; gap:22px; }
+.library-view[data-grid-columns="1"] .book-grid { grid-template-columns:minmax(260px,390px); justify-content:center; }
+.book-card { position:relative; display:block; min-width:0; min-height:0; width:100%; aspect-ratio:2/3; padding:0; overflow:hidden; border:1px solid #CFB48E; border-radius:12px; background:#765846; box-shadow:0 13px 27px rgba(48,38,34,.18); isolation:isolate; }
+.book-card::after { content:""; position:absolute; z-index:2; inset:8px; border:1px solid rgba(255,249,239,.32); border-radius:7px; pointer-events:none; }
+.book-card:hover .book-cover { transform:none; box-shadow:none; }
+.book-card .book-cover { position:absolute; inset:0; width:100%; height:100%; min-height:0; aspect-ratio:2/3; border-radius:0; box-shadow:none; background:#765846; }
+.book-card .book-cover img,.book-card .cover-fallback { width:100%; height:100%; object-fit:cover; }
+.book-card .cover-fallback { padding:16%; }
+.book-card-actions { position:absolute; z-index:6; top:11px; right:11px; display:flex; justify-content:flex-end; gap:6px; margin:0; }
+.book-card .card-menu,.book-card .card-pin { position:static; width:32px; height:32px; display:grid; place-items:center; border:1px solid rgba(255,249,239,.75); border-radius:9px; background:rgba(255,249,239,.9); color:#6A4D40; box-shadow:0 4px 12px rgba(48,38,34,.12); backdrop-filter:blur(6px); }
+.book-card .card-menu { opacity:0; }
+.book-card:hover .card-menu,.book-card:focus-within .card-menu { opacity:1; }
+.book-card .card-pin.active { background:#71343C; border-color:#71343C; color:#FFF9EF; }
+.book-meta { position:absolute; z-index:4; left:0; right:0; bottom:0; min-height:45%; padding:48px 15px 15px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(to top,rgba(255,249,239,.98) 0%,rgba(255,249,239,.92) 58%,rgba(255,249,239,.1) 100%); backdrop-filter:blur(1.5px); transition:opacity .2s ease,transform .2s ease; }
+.book-card .book-title { margin:0; color:#302622; font:700 clamp(19px,1.55vw,27px)/.98 "Cormorant Garamond",Georgia,serif; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.book-card .book-author { margin:7px 0 12px; color:#6F574C; font-size:clamp(9px,.76vw,12px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.book-card .mini-progress { margin-top:0; }
+.book-card .mini-progress > span { color:#6F574C; }
+.library-view[data-grid-columns="4"] .book-meta,.library-view[data-grid-columns="5"] .book-meta { opacity:0; transform:translateY(24px); pointer-events:none; }
+.library-view[data-grid-columns="4"] .book-card:hover .book-meta,.library-view[data-grid-columns="4"] .book-card:focus-within .book-meta,.library-view[data-grid-columns="4"] .book-card.info-visible .book-meta,.library-view[data-grid-columns="5"] .book-card:hover .book-meta,.library-view[data-grid-columns="5"] .book-card:focus-within .book-meta,.library-view[data-grid-columns="5"] .book-card.info-visible .book-meta { opacity:1; transform:none; pointer-events:auto; }
+.format-badge,.book-card-tags { display:none!important; }
+.status-summary,.status-list-head span,.status-book-cover,.status-book-actions,.status-book-copy small { display:none!important; }
+.status-columns { gap:20px; }
+.status-columns > section { padding:22px; }
+.status-book-list { gap:7px; }
+.status-book-row { min-height:50px; display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:12px; }
+.status-dot { width:8px; height:8px; flex:0 0 auto; border-radius:50%; background:#7C3741; }
+.status-book-copy { min-width:0; display:block; }
+.status-book-copy strong,.status-book-copy span { display:block; }
+.status-book-copy strong { font-size:18px; line-height:1.05; }
+.status-book-copy span { margin-top:3px; font-size:10px; }
+body.dark .book-meta { background:linear-gradient(to top,rgba(255,249,239,.98) 0%,rgba(255,249,239,.92) 58%,rgba(255,249,239,.1) 100%); }
+body.dark .book-card .book-title { color:#302622; }
+body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { color:#6F574C; }
+@media (max-width:1180px) { .book-grid { grid-template-columns:repeat(var(--library-cols,4),minmax(0,1fr)); } }
+@media (max-width:900px) { .view-control-group:first-child { display:flex; } .library-view[data-grid-columns="1"] .book-grid { grid-template-columns:minmax(0,1fr); } .library-view:not([data-grid-columns="1"]) .book-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:520px) { .book-grid,.library-view:not([data-grid-columns="1"]) .book-grid { grid-template-columns:1fr; } .book-card { display:block; min-height:0; aspect-ratio:2/3; } .book-card .book-cover { min-height:0; } .status-book-row { display:flex; min-height:50px; } }
