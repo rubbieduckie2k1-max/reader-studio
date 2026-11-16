@@ -867,7 +867,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.4', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.5', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1314,7 +1314,9 @@
         ...state.collections.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${collectionCount(item)})</option>`)
       ].join('');
       els.collectionFilterSelect.value = state.activeCollectionId;
-      els.manageCollectionBtn.disabled = !state.collections.some(item => item.id === state.activeCollectionId);
+      const canManageCollection = state.collections.some(item => item.id === state.activeCollectionId);
+      els.manageCollectionBtn.disabled = !canManageCollection;
+      els.manageCollectionBtn.classList.toggle('hidden', !canManageCollection);
       const selected = state.activeCollectionId === 'all' ? state.books.length : state.activeCollectionId === 'unfiled' ? unfiledCount : collectionCount(state.collections.find(item => item.id === state.activeCollectionId) || {bookIds:[]});
       els.collectionFilterMeta.textContent = `${selected} cuốn sách`;
     }
@@ -1360,7 +1362,9 @@
       ...state.series.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${count(item.id)})</option>`)
     ].join('');
     els.seriesFilterSelect.value = state.activeSeriesId;
-    els.manageSeriesBtn.disabled = !state.series.some(item => item.id === state.activeSeriesId);
+    const canManageSeries = state.series.some(item => item.id === state.activeSeriesId);
+    els.manageSeriesBtn.disabled = !canManageSeries;
+    els.manageSeriesBtn.classList.toggle('hidden', !canManageSeries);
     const selected = state.activeSeriesId === 'all' ? state.books.length : state.activeSeriesId === 'standalone' ? standalone : count(state.activeSeriesId);
     els.seriesFilterMeta.textContent = `${selected} cuốn sách`;
   }
