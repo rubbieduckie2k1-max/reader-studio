@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.8.0" />
-  <link rel="stylesheet" href="styles.css?v=1.8.0" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.9.0" />
+  <link rel="stylesheet" href="styles.css?v=1.9.0" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -25,6 +25,7 @@
             <button class="library-nav-tab active" data-library-panel="books"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5Zm16 0A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z"/></svg><b>Tất cả sách</b></button>
             <button class="library-nav-tab" data-library-panel="status"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9m7 10V5m7 14v-7M3 21h18"/></svg><b>Status sách</b></button>
             <button class="library-nav-tab" data-library-panel="notebooks"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg><b>Ghi chú chung</b></button>
+            <button class="library-nav-tab" data-library-panel="quotes"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v6H8v5H4v-6c0-3 1-5 3-5Zm10 0h3v6h-3v5h-4v-6c0-3 1-5 4-5Z"/></svg><b>Quote yêu thích</b></button>
           </nav>
           <div class="library-sidebar-label library-filter-label">BỘ LỌC THƯ VIỆN</div>
           <label class="sidebar-filter-box"><span>Thể loại</span><select id="collectionFilterSelect" aria-label="Lọc theo thể loại"></select><small id="collectionFilterMeta"></small></label>
@@ -34,7 +35,7 @@
           <div id="collectionsBar" class="hidden" aria-hidden="true"></div>
           <div id="authorsBar" class="hidden" aria-hidden="true"></div>
         </div>
-        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.8.0</span></div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.9.0</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -62,7 +63,10 @@
         </header>
 
         <div id="libraryBooksPanel">
-          <section id="libraryHero" class="library-hero hidden" aria-label="Tiếp tục đọc"></section>
+          <div class="library-feature-row">
+            <section id="libraryHero" class="library-hero hidden" aria-label="Sách đã ghim"></section>
+            <section id="quoteOfDay" class="quote-of-day-card hidden" aria-label="Quote of the Day"></section>
+          </div>
 
           <section class="reading-list-section">
             <div class="reading-list-head"><h2>Thể loại</h2></div>
@@ -101,13 +105,22 @@
           </div>
         </section>
 
+        <section id="libraryQuotesPanel" class="library-quotes-panel hidden">
+          <header class="status-header"><span class="eyebrow">TRÍCH DẪN ĐÃ LƯU</span><h2>Quote yêu thích</h2></header>
+          <div class="quote-panel-head"><p>Những đoạn bạn đã đánh dấu ★ Quote trong khi đọc.</p><span id="favoriteQuoteCount" class="tiny-pill">0</span></div>
+          <div id="favoriteQuoteList" class="favorite-quote-list"></div>
+        </section>
+
         <section id="globalNotebookPanel" class="global-notebook-panel hidden">
         <aside class="global-notebook-list-wrap">
           <div class="global-notebook-list-head">
-            <strong>Tất cả notebook</strong>
+            <strong>Chọn sách</strong>
             <span id="globalNotebookCount" class="tiny-pill">0</span>
           </div>
+          <label class="global-notebook-search"><span>⌕</span><input id="globalNotebookSearch" type="search" placeholder="Tìm sách có note..." autocomplete="off" /></label>
           <div id="globalNotebookList" class="global-notebook-list"></div>
+          <div id="globalNotebookEmpty" class="global-notebook-empty hidden">Chưa có sách nào có note.</div>
+          <button id="createNotebookNoteBtn" class="global-new-note-btn" type="button">＋ Tạo note mới</button>
         </aside>
         <div class="global-notebook-workspace">
           <header class="global-notebook-header">
@@ -240,6 +253,7 @@
     <button data-action="underline">U̲</button>
     <button data-action="strike">S̶</button>
     <button data-action="note">Note</button>
+    <button data-action="favorite" title="Lưu vào Quote yêu thích">★ Quote</button>
     <button data-action="translate">Dịch</button>
     <button class="selection-delete" data-action="delete" title="Xóa đánh dấu trong vùng đã chọn" aria-label="Xóa đánh dấu">×</button>
   </div>
@@ -256,6 +270,13 @@
     <blockquote id="noteQuote"></blockquote>
     <textarea id="noteInput" rows="5" placeholder="Viết note cho đoạn này..."></textarea>
     <div class="modal-actions split-actions"><button id="deleteAnnotationBtn" class="danger-btn">Xóa đánh dấu</button><div><button class="secondary-btn modal-cancel">Hủy</button><button id="saveNoteBtn" class="primary-btn">Lưu note</button></div></div>
+  </div>
+
+  <div id="notebookNoteModal" class="modal hidden">
+    <div class="modal-header"><strong>Tạo note mới</strong><button class="icon-btn compact modal-close">×</button></div>
+    <label class="modal-field">Sách<select id="notebookNoteBookSelect"></select></label>
+    <label class="modal-field">Tiêu đề note<input id="notebookNoteTitle" type="text" maxlength="120" placeholder="Ví dụ: Nhân vật chính" /></label>
+    <div class="modal-actions"><button class="secondary-btn modal-cancel">Hủy</button><button id="saveNewNotebookNoteBtn" class="primary-btn">Tạo note</button></div>
   </div>
 
   <div id="searchModal" class="modal search-modal hidden">
@@ -377,8 +398,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.8.0"></script>
+  <script src="config.js?v=1.9.0"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.9.0"></script>
 </body>
 </html>

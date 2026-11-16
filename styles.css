@@ -1402,7 +1402,7 @@ body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { c
   .mobile-grid-fixed { padding:0 9px; font-size:9px; }
 }
 
-/* Reader Studio 1.8.0 — series, fast page jump and final library layout */
+/* Reader Studio 1.8.1 — series, fast page jump and final library layout */
 .library-sidebar {
   position:fixed;
   inset:0 auto auto 0;
@@ -1452,4 +1452,127 @@ body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { c
   .library-view[data-grid-columns="6"] .book-meta { position:static; min-height:49px; padding:0; display:flex; flex-direction:column; justify-content:flex-start; background:none; backdrop-filter:none; opacity:1; transform:none; pointer-events:auto; transition:none; }
   .reader-center-info { order:3; width:100%; }
   .reader-page-jump { width:100%; justify-content:center; }
+}
+
+/* Reader Studio 1.9.0 — responsive hover info, searchable notebooks and favorite quotes */
+.library-feature-row {
+  margin:0 46px;
+  display:grid;
+  grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr);
+  gap:20px;
+  align-items:stretch;
+}
+.library-feature-row .library-hero {
+  width:100%;
+  min-height:330px;
+  margin:0;
+}
+.library-feature-row .library-hero-copy { width:62%; padding:62px 34px; }
+.library-feature-row .library-hero h2 { font-size:clamp(35px,3.3vw,48px); }
+.library-feature-row .library-hero-stage { right:1%; width:41%; }
+.library-feature-row .library-hero-cover { right:24px; top:38px; width:170px; }
+.library-feature-row .library-hero-reflection { right:112px; top:43px; width:195px; height:260px; }
+.library-feature-row .library-hero-empty { min-height:312px; padding:44px; }
+
+.quote-of-day-card {
+  min-width:0;
+  min-height:330px;
+  padding:34px 30px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid #CBA878;
+  border-radius:20px;
+  background:radial-gradient(circle at 93% 5%,rgba(124,53,65,.16),transparent 34%),linear-gradient(145deg,#F1DFC1,#FFF8EB);
+  color:#302622;
+  box-shadow:0 18px 44px rgba(48,38,34,.1);
+}
+.quote-day-top { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.quote-day-eyebrow { color:#71343C; font-size:11px; font-weight:800; letter-spacing:.13em; }
+.quote-day-mark { color:#8D4A53; font:700 34px/1 Georgia,serif; }
+.quote-of-day-card blockquote {
+  flex:1;
+  margin:26px 0 22px;
+  color:#302622;
+  font:600 italic clamp(21px,1.75vw,28px)/1.38 "Cormorant Garamond",Georgia,serif;
+}
+.quote-day-source { padding-top:16px; display:flex; flex-direction:column; gap:4px; border-top:1px solid #D5BB92; }
+.quote-day-source strong { color:#71343C; font-size:13px; }
+.quote-day-source span { color:#80695D; font-size:10px; }
+.quote-day-actions { margin-top:18px; display:flex; flex-wrap:wrap; gap:8px; }
+.quote-day-button {
+  min-height:36px; padding:0 12px; border:1px solid #C7A77C; border-radius:10px;
+  background:#FFF9ED; color:#71343C; font-size:10px; font-weight:750;
+}
+.quote-day-empty { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; }
+.quote-day-empty .quote-day-mark { margin:26px 0 10px; font-size:52px; }
+.quote-day-empty h2 { margin:0; font:700 27px/1.05 "Cormorant Garamond",Georgia,serif; }
+.quote-day-empty p { margin:10px 0 0; color:#80695D; font-size:11px; line-height:1.6; }
+
+.library-quotes-panel { padding:42px 46px 70px; }
+.quote-panel-head { margin:17px 0 22px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.quote-panel-head p { margin:0; color:var(--muted); font-size:12px; }
+.favorite-quote-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.favorite-quote-card { min-width:0; padding:24px; border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:var(--shadow); }
+.favorite-quote-card blockquote { margin:0 0 20px; font:600 italic 23px/1.42 "Cormorant Garamond",Georgia,serif; }
+.favorite-quote-source { padding-top:14px; display:flex; align-items:flex-end; justify-content:space-between; gap:18px; border-top:1px solid var(--line); }
+.favorite-quote-source > div:first-child { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.favorite-quote-source strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--accent); font-size:12px; }
+.favorite-quote-source span { color:var(--muted); font-size:10px; }
+.favorite-quote-source > div:last-child { flex:0 0 auto; display:flex; gap:6px; }
+.favorite-quote-source button { min-height:32px; padding:0 10px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); color:var(--accent); font-size:9px; font-weight:750; }
+.quote-panel-empty { grid-column:1/-1; min-height:340px; display:grid; place-items:center; align-content:center; text-align:center; color:var(--muted); }
+.quote-panel-empty > span { color:var(--accent); font:700 58px/1 Georgia,serif; }
+.quote-panel-empty strong { margin-top:12px; color:var(--text); font:700 26px "Cormorant Garamond",Georgia,serif; }
+.quote-panel-empty p { margin:7px 0 0; font-size:11px; }
+
+.global-notebook-search { position:relative; margin:12px 12px 4px; display:block; }
+.global-notebook-search > span { position:absolute; left:12px; top:9px; color:var(--muted); }
+.global-notebook-search input { width:100%; height:38px; padding:0 12px 0 34px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text); font-size:10px; outline:0; }
+.global-notebook-list { flex:1 1 auto; min-height:0; }
+.global-notebook-empty { padding:30px 18px; color:var(--muted); text-align:center; font-size:10px; }
+.global-new-note-btn { margin:10px 12px 14px; min-height:42px; border:1px dashed var(--accent); border-radius:11px; background:transparent; color:var(--accent); font-size:11px; font-weight:800; }
+.notebook-entry { margin:0 0 26px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+.notebook-entry > h2 { margin:0 0 3px; }
+.notebook-entry > small { color:var(--muted); font-size:9px; }
+.modal-field { margin-top:14px; display:grid; gap:7px; color:var(--muted); font-size:11px; font-weight:700; }
+.modal-field select,.modal-field input { width:100%; height:42px; padding:0 11px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text); }
+.ann-actions .favorite-active { background:var(--accent); color:#FFF9EF; }
+
+.book-card { container-type:inline-size; }
+.book-meta { min-height:42%; padding:clamp(8px,7cqi,15px); }
+.book-card .book-title { font-size:clamp(11px,10.5cqi,25px); line-height:1.02; }
+.book-card .book-author { margin:clamp(3px,3cqi,7px) 0 clamp(5px,4cqi,10px); font-size:clamp(7px,5.2cqi,12px); }
+.book-card .mini-progress { font-size:clamp(7px,4.8cqi,11px); }
+.book-card .mini-progress-track { height:clamp(3px,2.2cqi,5px); }
+
+body.dark .quote-of-day-card { border-color:#6D5548; background:radial-gradient(circle at 93% 5%,rgba(212,190,157,.12),transparent 34%),linear-gradient(145deg,#3A2D28,#2E2420); color:#F6EAD5; }
+body.dark .quote-of-day-card blockquote,body.dark .quote-day-empty h2 { color:#F6EAD5; }
+body.dark .quote-day-source { border-color:#6D5548; }
+body.dark .quote-day-source span,body.dark .quote-day-empty p { color:#CBB79B; }
+body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E7C99C; }
+
+@media (max-width:1050px) {
+  .library-feature-row { grid-template-columns:1fr; }
+  .quote-of-day-card { min-height:250px; }
+  .favorite-quote-list { grid-template-columns:1fr; }
+}
+@media (max-width:900px) {
+  .library-feature-row { margin:0 18px; }
+  .library-feature-row .library-hero { margin:0; min-height:500px; }
+  .library-feature-row .library-hero-copy { width:100%; padding:42px 28px; }
+  .library-feature-row .library-hero-stage { top:190px; width:100%; height:310px; }
+  .library-feature-row .library-hero-cover { right:14%; top:20px; width:180px; }
+  .library-feature-row .library-hero-reflection { right:34%; top:25px; width:200px; height:270px; }
+  .library-quotes-panel { padding:30px 18px 60px; }
+}
+@media (max-width:700px) {
+  .book-meta { position:static; min-height:49px; padding:0; }
+  .book-card .book-title { font-size:11px; }
+  .book-card .book-author { margin:3px 0 5px; font-size:7px; }
+  .global-notebook-search { margin:8px 10px 3px; }
+  .global-new-note-btn { margin:8px 10px 10px; }
+  .favorite-quote-card { padding:18px; }
+  .favorite-quote-card blockquote { font-size:20px; }
+  .favorite-quote-source { align-items:flex-start; flex-direction:column; }
 }

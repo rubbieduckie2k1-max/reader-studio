@@ -51,6 +51,9 @@
     globalNotebookSaveTimer: null,
     globalNotebookBookId: GLOBAL_NOTEBOOK_ID,
     globalNotebookLoaded: false,
+    globalNotebookItems: [],
+    favoriteQuotes: [],
+    quotePreviewOffset: 0,
     collections: [],
     series: [],
     pinnedBookId: null,
@@ -96,11 +99,11 @@
   const els = {};
   const cacheEls = () => {
     [
-      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','libraryResultCount',
+      'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','quoteOfDay','libraryResultCount',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
       'collectionFilterSelect','collectionFilterMeta','seriesFilterSelect','seriesFilterMeta','authorFilterSelect','authorFilterMeta','createSeriesBtn',
-      'libraryBooksPanel','libraryStatusPanel','statusCompletedBooks','statusCompletionTotal','statusNeverCompleted','statusCompletedBadge','statusIncompleteBadge','statusCompletedList','statusIncompleteList','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
-      'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
+      'libraryBooksPanel','libraryStatusPanel','libraryQuotesPanel','favoriteQuoteCount','favoriteQuoteList','statusCompletedBooks','statusCompletionTotal','statusNeverCompleted','statusCompletedBadge','statusIncompleteBadge','statusCompletedList','statusIncompleteList','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookSearch','globalNotebookEmpty','createNotebookNoteBtn','globalNotebookTitle','globalNotebookOpenBookBtn',
+      'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState','notebookNoteModal','notebookNoteBookSelect','notebookNoteTitle','saveNewNotebookNoteBtn',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel','pdfPageJump','pageNumberInput','pageTotalLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
       'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','mobileSelectionBtn','prevPageBtn','nextPageBtn',
@@ -863,7 +866,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.8.0', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -978,19 +981,28 @@
 
     [els.prevPageBtn, els.footerPrevBtn].forEach(b => b.addEventListener('click', () => navigate(-1)));
     [els.nextPageBtn, els.footerNextBtn].forEach(b => b.addEventListener('click', () => navigate(1)));
-    const jumpToPDFPage = async () => {
-      if (!state.pdfDoc || state.currentBook?.type !== 'pdf') return;
-      const step = state.spread ? 2 : 1;
-      const maxStart = state.spread ? Math.max(1, state.pdfDoc.numPages - ((state.pdfDoc.numPages + 1) % 2)) : state.pdfDoc.numPages;
-      let target = clamp(Math.round(Number(els.pageNumberInput.value) || 1), 1, maxStart);
-      if (state.spread && target > 1 && target % 2 === 0) target -= 1;
-      state.currentPage = target;
-      await renderPDFSpread();
-      els.pdfReader.scrollTop = 0;
+    const jumpToReaderPage = async () => {
+      if (!state.currentBook) return;
+      if (state.currentBook.type === 'pdf') {
+        if (!state.pdfDoc) return;
+        const maxStart = state.spread ? Math.max(1, state.pdfDoc.numPages - ((state.pdfDoc.numPages + 1) % 2)) : state.pdfDoc.numPages;
+        let target = clamp(Math.round(Number(els.pageNumberInput.value) || 1), 1, maxStart);
+        if (state.spread && target > 1 && target % 2 === 0) target -= 1;
+        state.currentPage = target;
+        await renderPDFSpread();
+        els.pdfReader.scrollTop = 0;
+        return;
+      }
+      if (!state.epubLocationReady || !state.epubBook || !state.rendition) return;
+      const total = Number(state.epubBook.locations.length()) || 0;
+      if (!total) return;
+      const target = clamp(Math.round(Number(els.pageNumberInput.value) || 1), 1, total);
+      const cfi = state.epubBook.locations.cfiFromLocation(target - 1);
+      if (cfi) await state.rendition.display(cfi);
     };
-    els.pageNumberInput?.addEventListener('change', jumpToPDFPage);
+    els.pageNumberInput?.addEventListener('change', jumpToReaderPage);
     els.pageNumberInput?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); jumpToPDFPage(); els.pageNumberInput.blur(); }
+      if (e.key === 'Enter') { e.preventDefault(); jumpToReaderPage(); els.pageNumberInput.blur(); }
     });
     els.zoomOutBtn.addEventListener('click', () => zoomBy(-0.1));
     els.zoomInBtn.addEventListener('click', () => zoomBy(0.1));
@@ -1072,6 +1084,12 @@
 
     bindNotebookEditor(els.bookNotebookToolbar, els.notebookEditor, scheduleNotebookSave);
     bindNotebookEditor(els.globalNotebookToolbar, els.globalNotebookEditor, scheduleGlobalNotebookSave);
+    els.globalNotebookSearch?.addEventListener('input', () => renderGlobalNotebookList());
+    els.createNotebookNoteBtn?.addEventListener('click', openNewNotebookNoteModal);
+    els.saveNewNotebookNoteBtn?.addEventListener('click', createNewNotebookNote);
+    els.notebookNoteTitle?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') createNewNotebookNote();
+    });
     els.globalNotebookOpenBookBtn.addEventListener('click', async () => {
       const bookId = els.globalNotebookOpenBookBtn.dataset.bookId;
       if (!bookId) return;
@@ -1179,11 +1197,21 @@
 
   async function refreshLibrary() {
     state.books = (await dbGetAll('books')).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    await loadFavoriteQuotes();
     await loadCollections();
     await loadLibraryPreferences();
     renderLibrary();
     renderStatusPanel();
+    renderQuotePanel();
     if (!els.globalNotebookPanel.classList.contains('hidden')) await renderGlobalNotebookList();
+  }
+
+  async function loadFavoriteQuotes() {
+    const bookIds = new Set(state.books.map(book => book.id));
+    const annotations = await dbGetAll('annotations').catch(() => []);
+    state.favoriteQuotes = annotations
+      .filter(ann => ann.favoriteQuote && ann.text?.trim() && bookIds.has(ann.bookId))
+      .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
   }
 
   async function loadLibraryPreferences() {
@@ -1281,6 +1309,7 @@
         els.libraryView.classList.remove('library-sidebar-mobile-open');
         els.libraryBooksPanel.classList.remove('hidden');
         els.libraryStatusPanel.classList.add('hidden');
+        els.libraryQuotesPanel?.classList.add('hidden');
         els.globalNotebookPanel.classList.add('hidden');
         $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
         if (state.globalNotebookLoaded) saveGlobalNotebook().catch(() => {});
@@ -1341,10 +1370,34 @@
         <p>${escapeHTML(book.author || 'Không rõ tác giả')}</p>
         <div class="library-hero-actions"><button class="hero-continue" ${isDone ? 'data-hero-restart' : 'data-hero-open'}="${escapeHTML(book.id)}">▶ <span>${actionLabel}</span></button><b>${progress}% đã đọc</b></div>
       </div>
-      <div class="library-hero-stage"><div class="library-hero-reflection" aria-hidden="true">${cover}</div><div class="library-hero-cover">${cover}</div><div class="hero-progress-card"><span>Tiến độ</span><b>${progress}%</b><i><em style="width:${progress}%"></em></i></div></div>`;
+      <div class="library-hero-stage"><div class="library-hero-reflection" aria-hidden="true">${cover}</div><div class="library-hero-cover">${cover}</div></div>`;
     els.libraryHero.classList.remove('hidden');
     $('[data-hero-open]', els.libraryHero)?.addEventListener('click', () => openBook(book.id));
     $('[data-hero-restart]', els.libraryHero)?.addEventListener('click', () => restartBook(book.id));
+  }
+
+  function renderQuoteOfDay() {
+    if (!els.quoteOfDay) return;
+    const quotes = state.favoriteQuotes;
+    if (!quotes.length) {
+      els.quoteOfDay.innerHTML = `<div class="quote-day-empty"><div class="quote-day-eyebrow">★ &nbsp; QUOTE OF THE DAY</div><span class="quote-day-mark">❝</span><h2>Chưa có quote yêu thích</h2><p>Khi đọc sách, quét một đoạn chữ rồi chọn <b>★ Quote</b>.</p></div>`;
+      els.quoteOfDay.classList.remove('hidden');
+      return;
+    }
+    const day = Math.floor(new Date().setHours(0, 0, 0, 0) / 86400000);
+    const index = ((day + state.quotePreviewOffset) % quotes.length + quotes.length) % quotes.length;
+    const quote = quotes[index];
+    const book = state.books.find(item => item.id === quote.bookId);
+    els.quoteOfDay.innerHTML = `<div class="quote-day-top"><div class="quote-day-eyebrow">★ &nbsp; QUOTE OF THE DAY</div><span class="quote-day-mark">❝</span></div>
+      <blockquote>${escapeHTML(quote.text)}</blockquote>
+      <div class="quote-day-source"><strong>${escapeHTML(book?.title || 'Sách đã xóa')}</strong><span>${escapeHTML(book?.author || 'Không rõ tác giả')}</span></div>
+      <div class="quote-day-actions"><button class="quote-day-button" data-quote-next>↻ Quote khác</button>${book ? `<button class="quote-day-button" data-quote-open="${escapeHTML(book.id)}">Mở sách →</button>` : ''}</div>`;
+    els.quoteOfDay.classList.remove('hidden');
+    $('[data-quote-next]', els.quoteOfDay)?.addEventListener('click', () => {
+      state.quotePreviewOffset += 1;
+      renderQuoteOfDay();
+    });
+    $('[data-quote-open]', els.quoteOfDay)?.addEventListener('click', () => openBook(book.id));
   }
 
   function renderLibrary() {
@@ -1374,6 +1427,7 @@
     renderSeriesFilter();
     renderAuthorsBar();
     renderLibraryHero();
+    renderQuoteOfDay();
     els.libraryResultCount.textContent = `${books.length} cuốn sách`;
     els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query);
     els.bookGrid.innerHTML = books.length ? books.map(book => {
@@ -1683,12 +1737,19 @@
     els.libraryView.classList.remove('library-sidebar-mobile-open');
     const showNotebooks = name === 'notebooks';
     const showStatus = name === 'status';
+    const showQuotes = name === 'quotes';
     $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === name));
-    els.libraryBooksPanel.classList.toggle('hidden', showNotebooks || showStatus);
+    els.libraryBooksPanel.classList.toggle('hidden', showNotebooks || showStatus || showQuotes);
     els.libraryStatusPanel.classList.toggle('hidden', !showStatus);
+    els.libraryQuotesPanel?.classList.toggle('hidden', !showQuotes);
     els.globalNotebookPanel.classList.toggle('hidden', !showNotebooks);
     if (showStatus) {
       renderStatusPanel();
+      if (state.globalNotebookLoaded) await saveGlobalNotebook();
+      return;
+    }
+    if (showQuotes) {
+      renderQuotePanel();
       if (state.globalNotebookLoaded) await saveGlobalNotebook();
       return;
     }
@@ -1699,22 +1760,52 @@
     }
     if (state.globalNotebookLoaded) await saveGlobalNotebook();
     await renderGlobalNotebookList();
-    await loadGlobalNotebook(state.globalNotebookBookId, false);
+    const available = new Set(state.globalNotebookItems.map(item => item.id));
+    const target = available.has(state.globalNotebookBookId) ? state.globalNotebookBookId : state.globalNotebookItems[0]?.id;
+    if (target) await loadGlobalNotebook(target, false);
+    else showEmptyGlobalNotebook();
+  }
+
+  function renderQuotePanel() {
+    if (!els.favoriteQuoteList) return;
+    els.favoriteQuoteCount.textContent = String(state.favoriteQuotes.length);
+    if (!state.favoriteQuotes.length) {
+      els.favoriteQuoteList.innerHTML = `<div class="quote-panel-empty"><span>❝</span><strong>Chưa có quote yêu thích</strong><p>Quét một đoạn chữ trong sách và chọn ★ Quote để lưu tại đây.</p></div>`;
+      return;
+    }
+    els.favoriteQuoteList.innerHTML = state.favoriteQuotes.map(quote => {
+      const book = state.books.find(item => item.id === quote.bookId);
+      return `<article class="favorite-quote-card" data-favorite-quote-id="${escapeHTML(quote.id)}"><blockquote>${escapeHTML(quote.text)}</blockquote><div class="favorite-quote-source"><div><strong>${escapeHTML(book?.title || 'Sách đã xóa')}</strong><span>${escapeHTML(book?.author || 'Không rõ tác giả')}</span></div><div><button data-favorite-open="${escapeHTML(quote.id)}">Mở sách</button><button data-favorite-remove="${escapeHTML(quote.id)}">Bỏ ★</button></div></div></article>`;
+    }).join('');
+    $$('[data-favorite-open]', els.favoriteQuoteList).forEach(button => button.addEventListener('click', async () => {
+      const quote = state.favoriteQuotes.find(item => item.id === button.dataset.favoriteOpen);
+      if (!quote) return;
+      await openBook(quote.bookId);
+      await jumpToAnnotation(quote);
+    }));
+    $$('[data-favorite-remove]', els.favoriteQuoteList).forEach(button => button.addEventListener('click', async () => {
+      const quote = state.favoriteQuotes.find(item => item.id === button.dataset.favoriteRemove);
+      if (quote) await toggleFavoriteQuote(quote, false);
+    }));
   }
 
   async function renderGlobalNotebookList() {
     const rows = await dbGetAll('notebooks');
     const byBook = new Map(rows.map(row => [row.bookId, row]));
-    els.globalNotebookCount.textContent = String(state.books.length + 1);
+    const hasContent = id => !!byBook.get(id)?.html?.replace(/<[^>]*>|&nbsp;/g, '').trim();
     const items = [
-      { id:GLOBAL_NOTEBOOK_ID, title:'Ghi chú chung', type:'Không thuộc riêng sách nào', icon:'N' },
-      ...state.books.map(book => ({ id:book.id, title:book.title, type:book.type.toUpperCase(), icon:book.type === 'pdf' ? 'P' : 'E' }))
+      ...(hasContent(GLOBAL_NOTEBOOK_ID) ? [{ id:GLOBAL_NOTEBOOK_ID, title:'Ghi chú chung', type:'Không thuộc riêng sách nào', icon:'N' }] : []),
+      ...state.books.filter(book => hasContent(book.id)).map(book => ({ id:book.id, title:book.title, type:book.author || 'Không rõ tác giả', icon:book.type === 'pdf' ? 'P' : 'E' }))
     ];
-    els.globalNotebookList.innerHTML = items.map(item => {
-      const hasNote = !!byBook.get(item.id)?.html?.replace(/<[^>]*>|&nbsp;/g, '').trim();
+    state.globalNotebookItems = items;
+    const query = els.globalNotebookSearch?.value.trim().toLowerCase() || '';
+    const visibleItems = items.filter(item => !query || `${item.title} ${item.type}`.toLowerCase().includes(query));
+    els.globalNotebookCount.textContent = String(items.length);
+    els.globalNotebookEmpty?.classList.toggle('hidden', visibleItems.length > 0);
+    els.globalNotebookList.innerHTML = visibleItems.map(item => {
       return `<button class="global-notebook-item${item.id === state.globalNotebookBookId ? ' active' : ''}" data-notebook-book-id="${escapeHTML(item.id)}">
         <span class="global-notebook-item-icon">${item.icon}</span>
-        <span class="global-notebook-item-text"><strong>${escapeHTML(item.title)}</strong><span>${hasNote ? 'Đã có ghi chú' : item.type}</span></span>
+        <span class="global-notebook-item-text"><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.type)}</span></span>
       </button>`;
     }).join('');
     $$('.global-notebook-item', els.globalNotebookList).forEach(button => button.addEventListener('click', async () => {
@@ -1725,12 +1816,49 @@
     }));
   }
 
+  function showEmptyGlobalNotebook() {
+    state.globalNotebookLoaded = false;
+    state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
+    els.globalNotebookTitle.textContent = 'Chưa có note';
+    els.globalNotebookEditor.innerHTML = '';
+    els.globalNotebookEditor.dataset.placeholder = 'Nhấn “＋ Tạo note mới” để bắt đầu.';
+    els.globalNotebookEditor.contentEditable = 'false';
+    els.globalNotebookOpenBookBtn.classList.add('hidden');
+    els.globalNotebookSaveState.textContent = '—';
+  }
+
+  function openNewNotebookNoteModal() {
+    const options = [
+      { id:GLOBAL_NOTEBOOK_ID, label:'Ghi chú chung' },
+      ...state.books.map(book => ({ id:book.id, label:`${book.title} — ${book.author || 'Không rõ tác giả'}` }))
+    ];
+    els.notebookNoteBookSelect.innerHTML = options.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.label)}</option>`).join('');
+    els.notebookNoteBookSelect.value = options.some(item => item.id === state.globalNotebookBookId) ? state.globalNotebookBookId : options[0]?.id || GLOBAL_NOTEBOOK_ID;
+    els.notebookNoteTitle.value = '';
+    openModal(els.notebookNoteModal);
+    setTimeout(() => els.notebookNoteTitle.focus(), 50);
+  }
+
+  async function createNewNotebookNote() {
+    const bookId = els.notebookNoteBookSelect.value || GLOBAL_NOTEBOOK_ID;
+    const title = els.notebookNoteTitle.value.trim() || 'Note mới';
+    await loadGlobalNotebook(bookId, true);
+    const createdAt = new Intl.DateTimeFormat('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' }).format(new Date());
+    els.globalNotebookEditor.insertAdjacentHTML('beforeend', `<section class="notebook-entry"><h2>${escapeHTML(title)}</h2><small>${createdAt}</small><p><br></p></section>`);
+    await saveGlobalNotebook();
+    await renderGlobalNotebookList();
+    closeModals();
+    els.globalNotebookEditor.focus();
+    toast('Đã tạo note mới');
+  }
+
   async function loadGlobalNotebook(bookId, saveCurrent = true) {
     if (saveCurrent && state.globalNotebookLoaded) await saveGlobalNotebook();
     const book = state.books.find(item => item.id === bookId);
     if (bookId !== GLOBAL_NOTEBOOK_ID && !book) bookId = GLOBAL_NOTEBOOK_ID;
     state.globalNotebookBookId = bookId;
     const row = await dbGet('notebooks', bookId);
+    els.globalNotebookEditor.contentEditable = 'true';
     els.globalNotebookEditor.innerHTML = row?.html || '';
     state.notebookRanges.delete(els.globalNotebookEditor);
     state.globalNotebookLoaded = true;
@@ -1949,6 +2077,7 @@
     els.locationLabel.classList.add('hidden');
     state.pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(book.fileData.slice(0)) }).promise;
     state.currentPage = clamp(state.currentPage, 1, state.pdfDoc.numPages);
+    els.pageNumberInput.disabled = false;
     els.pageNumberInput.max = String(state.pdfDoc.numPages);
     els.pageTotalLabel.textContent = String(state.pdfDoc.numPages);
     await buildPDFTOC();
@@ -2100,8 +2229,12 @@
     await ensureEpubEngine();
     els.pdfReader.classList.add('hidden');
     els.epubReader.classList.remove('hidden');
-    els.pdfPageJump.classList.add('hidden');
-    els.locationLabel.classList.remove('hidden');
+    els.pdfPageJump.classList.remove('hidden');
+    els.locationLabel.classList.add('hidden');
+    els.pageNumberInput.value = '1';
+    els.pageNumberInput.max = '1';
+    els.pageNumberInput.disabled = true;
+    els.pageTotalLabel.textContent = '…';
     els.epubArea.innerHTML = '';
     state.epubBook = ePub(book.fileData.slice(0));
     state.rendition = state.epubBook.renderTo('epubArea', {
@@ -2116,6 +2249,7 @@
     replayEPUBAnnotations();
     state.epubBook.locations.generate(1200).then(() => {
       state.epubLocationReady = true;
+      els.pageNumberInput.disabled = false;
       const loc = state.rendition.currentLocation();
       if (loc) updateEPUBProgress(loc);
     }).catch(() => {});
@@ -2370,12 +2504,17 @@
     if (!location?.start) return;
     let pct = state.currentBook?.progress || 0;
     if (state.epubLocationReady && location.start.cfi) {
-      try { pct = state.epubBook.locations.percentageFromCfi(location.start.cfi) * 100; } catch (_) {}
+      try {
+        pct = state.epubBook.locations.percentageFromCfi(location.start.cfi) * 100;
+        const total = Number(state.epubBook.locations.length()) || 1;
+        const index = Number(state.epubBook.locations.locationFromCfi(location.start.cfi));
+        const page = clamp((Number.isFinite(index) ? index : 0) + 1, 1, total);
+        els.pageNumberInput.value = String(page);
+        els.pageNumberInput.max = String(total);
+        els.pageNumberInput.disabled = false;
+        els.pageTotalLabel.textContent = String(total);
+      } catch (_) {}
     }
-    const label = location.start.displayed?.page && location.start.displayed?.total
-      ? `${Math.round(pct)}% · ${location.start.displayed.page}/${location.start.displayed.total}`
-      : `${Math.round(pct)}%`;
-    els.locationLabel.textContent = label;
     setProgress(pct);
     scheduleProgressSave({ cfi: location.start.cfi, href: location.start.href }, pct);
   }
@@ -2722,6 +2861,14 @@
     const action = actionBtn.dataset.action;
     if (action === 'delete') return deleteAnnotationsAtSelection();
     if (action === 'translate') return translateSelection();
+    if (action === 'favorite') {
+      const existing = annotationsInsideCurrentSelection()[0];
+      if (existing) {
+        hideSelectionTools(true);
+        return toggleFavoriteQuote(existing, true);
+      }
+      return addAnnotation('highlight', 'yellow', false, { favoriteQuote:true });
+    }
     if (action === 'note') {
       const ann = await addAnnotation('highlight', 'yellow', true);
       if (ann) {
@@ -2792,6 +2939,7 @@
       hideSelectionTools(true);
       return toast('Đã bỏ vùng chọn · đoạn này chưa có đánh dấu đã lưu', 3200);
     }
+    const removedFavorite = matches.some(ann => ann.favoriteQuote);
     for (const ann of matches) {
       removeEPUBAnnotation(ann);
       await dbDelete('annotations', ann.id);
@@ -2801,16 +2949,21 @@
     const pdfPages = [...new Set(matches.filter(ann => ann.format === 'pdf').map(ann => ann.location?.page))];
     if (pdfPages.length) await renderPDFSpread();
     renderAnnotationPanels();
+    if (removedFavorite) {
+      await loadFavoriteQuotes();
+      renderQuoteOfDay();
+      renderQuotePanel();
+    }
     hideSelectionTools(true);
     toast(matches.length > 1 ? `Đã xóa ${matches.length} đánh dấu` : 'Đã xóa đánh dấu');
   }
 
-  async function addAnnotation(type, color, keepSelection = false) {
+  async function addAnnotation(type, color, keepSelection = false, extras = {}) {
     if (!state.selection || !state.currentBook) return null;
     const ann = {
       id: uid(), bookId: state.currentBook.id, format: state.selection.format,
       type, color, text: state.selection.text, location: structuredClone(state.selection.location),
-      note: '', createdAt: Date.now(), updatedAt: Date.now()
+      note: '', createdAt: Date.now(), updatedAt: Date.now(), ...extras
     };
     await dbPut('annotations', ann);
     state.annotations.push(ann);
@@ -2819,9 +2972,14 @@
       if (page) { page.innerHTML = ''; renderPDFAnnotations(ann.location.page, page); }
     } else applyEPUBAnnotation(ann);
     renderAnnotationPanels();
+    if (ann.favoriteQuote) {
+      await loadFavoriteQuotes();
+      renderQuoteOfDay();
+      renderQuotePanel();
+    }
     if (!keepSelection) {
       hideSelectionTools(true);
-      toast(type === 'underline' ? 'Đã gạch dưới · Click lại đoạn đó để xóa' : 'Đã đánh dấu · Click lại đoạn đó để xóa', 2800);
+      toast(ann.favoriteQuote ? 'Đã lưu vào Quote yêu thích' : type === 'underline' ? 'Đã gạch dưới · Click lại đoạn đó để xóa' : 'Đã đánh dấu · Click lại đoạn đó để xóa', 2800);
     }
     return ann;
   }
@@ -2845,6 +3003,7 @@
           if (!ann) return;
           if (btn.dataset.annAction === 'note') openNoteModal(ann);
           if (btn.dataset.annAction === 'notebook') addAnnotationToNotebook(ann);
+          if (btn.dataset.annAction === 'favorite') toggleFavoriteQuote(ann);
           if (btn.dataset.annAction === 'delete') deleteAnnotation(ann);
         }));
       });
@@ -2858,8 +3017,22 @@
       <div class="ann-top"><span class="ann-type"><i class="ann-swatch" style="background:${colorMap[ann.color] || colorMap.yellow}"></i>${escapeHTML(ann.type)}</span><span class="ann-location">${loc}</span></div>
       <div class="ann-quote">${escapeHTML(ann.text || '')}</div>
       ${ann.note ? `<div class="ann-note">${escapeHTML(ann.note)}</div>` : ''}
-      <div class="ann-actions"><button data-ann-action="note">${ann.note ? 'Sửa note' : '+ Note'}</button><button data-ann-action="notebook">＋ Notebook</button><button data-ann-action="delete">Xóa</button></div>
+      <div class="ann-actions"><button class="${ann.favoriteQuote ? 'favorite-active' : ''}" data-ann-action="favorite">${ann.favoriteQuote ? '★ Quote' : '☆ Quote'}</button><button data-ann-action="note">${ann.note ? 'Sửa note' : '+ Note'}</button><button data-ann-action="notebook">＋ Notebook</button><button data-ann-action="delete">Xóa</button></div>
     </article>`;
+  }
+
+  async function toggleFavoriteQuote(ann, force) {
+    if (!ann) return;
+    ann.favoriteQuote = typeof force === 'boolean' ? force : !ann.favoriteQuote;
+    ann.updatedAt = Date.now();
+    await dbPut('annotations', ann);
+    const current = state.annotations.find(item => item.id === ann.id);
+    if (current) current.favoriteQuote = ann.favoriteQuote;
+    await loadFavoriteQuotes();
+    renderAnnotationPanels();
+    renderQuoteOfDay();
+    renderQuotePanel();
+    toast(ann.favoriteQuote ? 'Đã lưu vào Quote yêu thích' : 'Đã bỏ khỏi Quote yêu thích');
   }
 
   async function jumpToAnnotation(ann) {
@@ -2892,11 +3065,17 @@
   }
 
   async function deleteAnnotation(ann) {
+    const wasFavorite = !!ann.favoriteQuote;
     removeEPUBAnnotation(ann);
     await dbDelete('annotations', ann.id);
     state.annotations = state.annotations.filter(a => a.id !== ann.id);
     if (ann.format === 'pdf') renderPDFSpread();
     renderAnnotationPanels();
+    if (wasFavorite) {
+      await loadFavoriteQuotes();
+      renderQuoteOfDay();
+      renderQuotePanel();
+    }
     toast('Đã xóa');
   }
 
