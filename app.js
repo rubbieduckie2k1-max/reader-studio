@@ -43,6 +43,7 @@
     mobileGestureBound: new WeakSet(),
     epubRenditionGesture: null,
     lastSwipeAt: 0,
+    navigationBusy: false,
     currentEditingAnnotation: null,
     searchBusy: false,
     renderToken: 0,
@@ -106,13 +107,13 @@
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState','notebookNoteModal','notebookNoteBookSelect','notebookNoteTitle','saveNewNotebookNoteBtn',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel','pdfPageJump','pageNumberInput','pageTotalLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
-      'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','mobileSelectionBtn','prevPageBtn','nextPageBtn',
+      'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','mobileSelectionBtn','mobilePageJump','mobilePageNumberInput','mobilePageTotalLabel','mobileSavePlaceBtn','mobileReturnPlaceBtn','prevPageBtn','nextPageBtn',
       'footerPrevBtn','footerNextBtn','progressBar','progressText','mobileZoomControls','mobileZoomOutBtn','mobileZoomInBtn','mobileZoomLabel','readerLoading','tocList','bookmarkList','bookmarkCount',
       'notesList','highlightsList','bookNotebookToolbar','notebookEditor','notebookSaveState','selectionToolbar','translationPopover',
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang','uiScaleRange','uiScaleValue','uiScalePresets',
       'saveSettingsBtn','bookSettingsModal','bookCoverPreview','customCoverInput','chooseCoverBtn','restoreCoverBtn','bookTitleInput','bookAuthorInput',
-      'bookCollectionChoices','bookCreateCollectionBtn','bookSeriesSelect','bookSeriesOrderInput','bookPinFromSettingsBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
+      'bookCollectionDropdown','bookCollectionDropdownLabel','bookCollectionChoices','bookCreateCollectionBtn','bookSeriesSelect','bookSeriesOrderInput','bookPinFromSettingsBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
       'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','seriesModal','seriesModalTitle','seriesNameInput','deleteSeriesBtn','saveSeriesBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
       'signUpBtn','signInBtn','forgotPasswordBtn','resetPasswordPanel','resetPasswordIntro','newPassword','confirmNewPassword','resetPasswordMessage',
       'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn',
@@ -866,7 +867,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.1', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.2', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -981,14 +982,13 @@
 
     [els.prevPageBtn, els.footerPrevBtn].forEach(b => b.addEventListener('click', () => navigate(-1)));
     [els.nextPageBtn, els.footerNextBtn].forEach(b => b.addEventListener('click', () => navigate(1)));
-    const jumpToReaderPage = async () => {
+    const jumpToReaderPage = async sourceInput => {
       if (!state.currentBook) return;
+      const input = sourceInput || els.pageNumberInput;
       if (state.currentBook.type === 'pdf') {
         if (!state.pdfDoc) return;
-        const maxStart = state.spread ? Math.max(1, state.pdfDoc.numPages - ((state.pdfDoc.numPages + 1) % 2)) : state.pdfDoc.numPages;
-        let target = clamp(Math.round(Number(els.pageNumberInput.value) || 1), 1, maxStart);
-        if (state.spread && target > 1 && target % 2 === 0) target -= 1;
-        state.currentPage = target;
+        const requested = clamp(Math.round(Number(input.value) || 1), 1, state.pdfDoc.numPages);
+        state.currentPage = normalizePDFSpreadStart(requested);
         await renderPDFSpread();
         els.pdfReader.scrollTop = 0;
         return;
@@ -996,13 +996,15 @@
       if (!state.epubLocationReady || !state.epubBook || !state.rendition) return;
       const total = Number(state.epubBook.locations.length()) || 0;
       if (!total) return;
-      const target = clamp(Math.round(Number(els.pageNumberInput.value) || 1), 1, total);
+      const target = clamp(Math.round(Number(input.value) || 1), 1, total);
       const cfi = state.epubBook.locations.cfiFromLocation(target - 1);
       if (cfi) await state.rendition.display(cfi);
     };
-    els.pageNumberInput?.addEventListener('change', jumpToReaderPage);
-    els.pageNumberInput?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); jumpToReaderPage(); els.pageNumberInput.blur(); }
+    [els.pageNumberInput, els.mobilePageNumberInput].forEach(input => {
+      input?.addEventListener('change', () => jumpToReaderPage(input));
+      input?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); jumpToReaderPage(input); input.blur(); }
+      });
     });
     els.zoomOutBtn.addEventListener('click', () => zoomBy(-0.1));
     els.zoomInBtn.addEventListener('click', () => zoomBy(0.1));
@@ -1012,6 +1014,8 @@
     els.spreadBtn.addEventListener('click', toggleSpread);
     els.savePlaceBtn.addEventListener('click', saveReadingPlace);
     els.returnPlaceBtn.addEventListener('click', returnToReadingPlace);
+    els.mobileSavePlaceBtn.addEventListener('click', saveReadingPlace);
+    els.mobileReturnPlaceBtn.addEventListener('click', returnToReadingPlace);
     els.bookmarkBtn.addEventListener('click', toggleBookmark);
     els.readerSearchBtn.addEventListener('click', openSearch);
     els.fullscreenBtn.addEventListener('click', toggleFullscreen);
@@ -1287,12 +1291,14 @@
   function renderCollectionsBar() {
     const assigned = new Set(state.collections.flatMap(item => item.bookIds));
     const unfiledCount = state.books.filter(book => !assigned.has(book.id)).length;
-    const filter = (id, label, count) => `<button class="collection-pill${state.activeCollectionId === id ? ' active' : ''}" data-collection-filter="${escapeHTML(id)}"><span>${escapeHTML(label)}</span><b>${count}</b></button>`;
     els.collectionsBar.innerHTML = '';
     els.collectionsChips.innerHTML = [
-      filter('all', 'Tất cả sách', state.books.length),
-      ...state.collections.map(item => filter(item.id, item.name, collectionCount(item)))
+      `<option value="all">Tất cả sách (${state.books.length})</option>`,
+      `<option value="unfiled">Chưa phân loại (${unfiledCount})</option>`,
+      ...state.collections.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${collectionCount(item)})</option>`)
     ].join('');
+    els.collectionsChips.value = state.activeCollectionId;
+    els.collectionsChips.onchange = () => selectCollectionFilter(els.collectionsChips.value);
     if (els.collectionFilterSelect) {
       els.collectionFilterSelect.innerHTML = [
         `<option value="all">Tất cả sách (${state.books.length})</option>`,
@@ -1303,20 +1309,18 @@
       const selected = state.activeCollectionId === 'all' ? state.books.length : state.activeCollectionId === 'unfiled' ? unfiledCount : collectionCount(state.collections.find(item => item.id === state.activeCollectionId) || {bookIds:[]});
       els.collectionFilterMeta.textContent = `${selected} cuốn sách`;
     }
-    [els.collectionsChips].forEach(container => {
-      $$('[data-collection-filter]', container).forEach(button => button.addEventListener('click', () => {
-        state.activeCollectionId = button.dataset.collectionFilter;
-        els.libraryView.classList.remove('library-sidebar-mobile-open');
-        els.libraryBooksPanel.classList.remove('hidden');
-        els.libraryStatusPanel.classList.add('hidden');
-        els.libraryQuotesPanel?.classList.add('hidden');
-        els.globalNotebookPanel.classList.add('hidden');
-        $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
-        if (state.globalNotebookLoaded) saveGlobalNotebook().catch(() => {});
-        renderLibrary();
-      }));
-      $('[data-create-collection]', container)?.addEventListener('click', () => openCollectionModal());
-    });
+  }
+
+  function selectCollectionFilter(collectionId) {
+    state.activeCollectionId = collectionId || 'all';
+    els.libraryView.classList.remove('library-sidebar-mobile-open');
+    els.libraryBooksPanel.classList.remove('hidden');
+    els.libraryStatusPanel.classList.add('hidden');
+    els.libraryQuotesPanel?.classList.add('hidden');
+    els.globalNotebookPanel.classList.add('hidden');
+    $$('.library-nav-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.libraryPanel === 'books'));
+    if (state.globalNotebookLoaded) saveGlobalNotebook().catch(() => {});
+    renderLibrary();
   }
 
   function renderAuthorsBar() {
@@ -1530,9 +1534,18 @@
   function renderBookCollectionChoices(bookId) {
     if (!state.collections.length) {
       els.bookCollectionChoices.innerHTML = '<span class="empty-choice">Chưa có thể loại nào.</span>';
+      els.bookCollectionDropdownLabel.textContent = 'Chưa có thể loại';
       return;
     }
     els.bookCollectionChoices.innerHTML = state.collections.map(item => `<label class="collection-check"><input type="checkbox" value="${escapeHTML(item.id)}" ${item.bookIds.includes(bookId) ? 'checked' : ''} /><span>${escapeHTML(item.name)}</span></label>`).join('');
+    const updateLabel = () => {
+      const selected = $$('input[type="checkbox"]:checked', els.bookCollectionChoices);
+      if (!selected.length) els.bookCollectionDropdownLabel.textContent = 'Không có thể loại';
+      else if (selected.length === 1) els.bookCollectionDropdownLabel.textContent = selected[0].nextElementSibling?.textContent || '1 thể loại';
+      else els.bookCollectionDropdownLabel.textContent = `${selected.length} thể loại đã chọn`;
+    };
+    $$('input[type="checkbox"]', els.bookCollectionChoices).forEach(input => input.addEventListener('change', updateLabel));
+    updateLabel();
   }
 
   function renderBookSeriesChoice(book) {
@@ -1562,6 +1575,7 @@
     els.bookAuthorInput.value = book.author || '';
     renderBookCoverPreview(book.cover, book.title);
     renderBookCollectionChoices(bookId);
+    els.bookCollectionDropdown.open = false;
     renderBookSeriesChoice(book);
     updateBookPinButton(book);
     els.customCoverInput.value = '';
@@ -2069,17 +2083,37 @@
   }
 
   // ---------- PDF ----------
+  function normalizePDFSpreadStart(page) {
+    if (!state.pdfDoc) return Math.max(1, Math.round(Number(page) || 1));
+    const total = state.pdfDoc.numPages;
+    const target = clamp(Math.round(Number(page) || 1), 1, total);
+    if (!state.spread) return target;
+    return target > 1 && target % 2 === 0 ? target - 1 : target;
+  }
+
+  function updatePageJump(page, total, disabled = false) {
+    const safePage = Math.max(1, Math.round(Number(page) || 1));
+    const safeTotal = total === '…' ? '…' : Math.max(1, Math.round(Number(total) || 1));
+    [els.pageNumberInput, els.mobilePageNumberInput].forEach(input => {
+      if (!input) return;
+      input.value = String(safePage);
+      input.disabled = !!disabled;
+      if (safeTotal !== '…') input.max = String(safeTotal);
+    });
+    els.pageTotalLabel.textContent = String(safeTotal);
+    els.mobilePageTotalLabel.textContent = String(safeTotal);
+  }
+
   async function openPDF(book) {
     await ensurePDFEngine();
     els.pdfReader.classList.remove('hidden');
     els.epubReader.classList.add('hidden');
     els.pdfPageJump.classList.remove('hidden');
+    els.mobilePageJump.classList.remove('hidden');
     els.locationLabel.classList.add('hidden');
     state.pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(book.fileData.slice(0)) }).promise;
-    state.currentPage = clamp(state.currentPage, 1, state.pdfDoc.numPages);
-    els.pageNumberInput.disabled = false;
-    els.pageNumberInput.max = String(state.pdfDoc.numPages);
-    els.pageTotalLabel.textContent = String(state.pdfDoc.numPages);
+    state.currentPage = normalizePDFSpreadStart(state.currentPage);
+    updatePageJump(state.currentPage, state.pdfDoc.numPages, false);
     await buildPDFTOC();
     await renderPDFSpread();
     updatePDFProgress();
@@ -2087,6 +2121,7 @@
 
   async function renderPDFSpread() {
     if (!state.pdfDoc || state.currentBook?.type !== 'pdf') return;
+    state.currentPage = normalizePDFSpreadStart(state.currentPage);
     const token = ++state.renderToken;
     els.pdfPages.innerHTML = '';
     const pages = [state.currentPage];
@@ -2216,10 +2251,9 @@
 
   function updatePDFProgress() {
     if (!state.pdfDoc) return;
-    const pct = (state.currentPage / state.pdfDoc.numPages) * 100;
-    els.pageNumberInput.value = String(state.currentPage);
-    els.pageNumberInput.max = String(state.pdfDoc.numPages);
-    els.pageTotalLabel.textContent = String(state.pdfDoc.numPages);
+    const visibleLastPage = state.spread ? Math.min(state.currentPage + 1, state.pdfDoc.numPages) : state.currentPage;
+    const pct = (visibleLastPage / state.pdfDoc.numPages) * 100;
+    updatePageJump(state.currentPage, state.pdfDoc.numPages, false);
     setProgress(pct);
     scheduleProgressSave({ page: state.currentPage }, pct);
   }
@@ -2230,11 +2264,9 @@
     els.pdfReader.classList.add('hidden');
     els.epubReader.classList.remove('hidden');
     els.pdfPageJump.classList.remove('hidden');
+    els.mobilePageJump.classList.remove('hidden');
     els.locationLabel.classList.add('hidden');
-    els.pageNumberInput.value = '1';
-    els.pageNumberInput.max = '1';
-    els.pageNumberInput.disabled = true;
-    els.pageTotalLabel.textContent = '…';
+    updatePageJump(1, '…', true);
     els.epubArea.innerHTML = '';
     state.epubBook = ePub(book.fileData.slice(0));
     state.rendition = state.epubBook.renderTo('epubArea', {
@@ -2249,7 +2281,6 @@
     replayEPUBAnnotations();
     state.epubBook.locations.generate(1200).then(() => {
       state.epubLocationReady = true;
-      els.pageNumberInput.disabled = false;
       const loc = state.rendition.currentLocation();
       if (loc) updateEPUBProgress(loc);
     }).catch(() => {});
@@ -2287,8 +2318,8 @@
       let selectedText = '';
       try { selectedText = contents?.window?.getSelection?.()?.toString?.()?.trim() || ''; } catch (_) {}
       if (!gesture.interactive && !selectedText && Date.now() - gesture.at < 950 && direction) {
-        state.epubRenditionGesture = null;
-        performSwipeNavigation(direction);
+        gesture.direction = direction;
+        event.preventDefault?.();
       }
     });
     state.rendition.on('touchend', (event, contents) => {
@@ -2302,7 +2333,7 @@
       const dy = touch.clientY - gesture.y;
       let selectedText = '';
       try { selectedText = contents?.window?.getSelection?.()?.toString?.()?.trim() || ''; } catch (_) {}
-      const direction = swipeNavigationDirection(dx, dy, 'epub');
+      const direction = gesture.direction || swipeNavigationDirection(dx, dy, 'epub');
       if (!gesture.interactive && !selectedText && Date.now() - gesture.at < 950 && direction) {
         performSwipeNavigation(direction);
       }
@@ -2509,10 +2540,7 @@
         const total = Number(state.epubBook.locations.length()) || 1;
         const index = Number(state.epubBook.locations.locationFromCfi(location.start.cfi));
         const page = clamp((Number.isFinite(index) ? index : 0) + 1, 1, total);
-        els.pageNumberInput.value = String(page);
-        els.pageNumberInput.max = String(total);
-        els.pageNumberInput.disabled = false;
-        els.pageTotalLabel.textContent = String(total);
+        updatePageJump(page, total, false);
       } catch (_) {}
     }
     setProgress(pct);
@@ -2521,21 +2549,29 @@
 
   // ---------- Navigation / view ----------
   async function navigate(dir) {
-    if (!state.currentBook) return;
-    if (state.currentBook.type === 'pdf') {
-      const step = state.spread ? 2 : 1;
-      const maxStart = state.spread ? Math.max(1, state.pdfDoc.numPages - ((state.pdfDoc.numPages + 1) % 2)) : state.pdfDoc.numPages;
-      state.currentPage = clamp(state.currentPage + dir * step, 1, maxStart);
-      await renderPDFSpread();
-      els.pdfReader.scrollTop = 0;
-    } else if (state.rendition) {
-      dir < 0 ? state.rendition.prev() : state.rendition.next();
+    if (!state.currentBook || state.navigationBusy) return;
+    state.navigationBusy = true;
+    try {
+      if (state.currentBook.type === 'pdf') {
+        const total = state.pdfDoc.numPages;
+        const current = normalizePDFSpreadStart(state.currentPage);
+        state.currentPage = state.spread
+          ? normalizePDFSpreadStart(clamp(current + (dir < 0 ? -2 : 2), 1, total))
+          : clamp(current + (dir < 0 ? -1 : 1), 1, total);
+        await renderPDFSpread();
+        els.pdfReader.scrollTop = 0;
+      } else if (state.rendition) {
+        if (dir < 0) await state.rendition.prev();
+        else await state.rendition.next();
+      }
+    } finally {
+      window.setTimeout(() => { state.navigationBusy = false; }, 90);
     }
   }
 
   function performSwipeNavigation(dir) {
     const now = Date.now();
-    if (now - state.lastSwipeAt < 500) return;
+    if (now - state.lastSwipeAt < 550 || state.navigationBusy) return;
     state.lastSwipeAt = now;
     state.epubRenditionGesture = null;
     hideSelectionTools(true);
@@ -2629,8 +2665,7 @@
         const direction = swipeNavigationDirection(touch.clientX - gesture.x, touch.clientY - gesture.y);
         if (!gesture.interactive && !selectionText() && Date.now() - gesture.at < 950 && direction) {
           e.preventDefault();
-          gesture = null;
-          performSwipeNavigation(direction);
+          gesture.direction = direction;
         }
         return;
       }
@@ -2671,7 +2706,7 @@
       const dx = touch.clientX - gesture.x;
       const dy = touch.clientY - gesture.y;
       const elapsed = Date.now() - gesture.at;
-      const direction = swipeNavigationDirection(dx, dy);
+      const direction = gesture.direction || swipeNavigationDirection(dx, dy);
       const shouldNavigate = !gesture.interactive && !selectionText() && elapsed < 950 && direction;
       gesture = null;
       if (shouldNavigate) {
@@ -2695,14 +2730,17 @@
       const direction = swipeNavigationDirection(e.clientX - pointerGesture.x, e.clientY - pointerGesture.y);
       if (!pointerGesture.interactive && !selectionText() && Date.now() - pointerGesture.at < 950 && direction) {
         e.preventDefault();
-        pointerGesture = null;
-        gesture = null;
-        performSwipeNavigation(direction);
+        pointerGesture.direction = direction;
       }
     }, { passive:false });
-    const clearPointerGesture = () => { pointerGesture = null; };
-    target.addEventListener('pointerup', clearPointerGesture, { passive:true });
-    target.addEventListener('pointercancel', clearPointerGesture, { passive:true });
+    target.addEventListener('pointerup', e => {
+      if (!pointerGesture) return;
+      const current = pointerGesture;
+      pointerGesture = null;
+      const direction = current.direction || swipeNavigationDirection(e.clientX - current.x, e.clientY - current.y);
+      if (!current.interactive && !selectionText() && Date.now() - current.at < 950 && direction) performSwipeNavigation(direction);
+    }, { passive:true });
+    target.addEventListener('pointercancel', () => { pointerGesture = null; }, { passive:true });
   }
 
   function toggleSpread() {
@@ -2710,7 +2748,10 @@
     els.spreadBtn.classList.toggle('active', state.spread);
     if (state.currentBook) {
       state.currentBook.spread = state.spread;
-      if (state.currentBook.type === 'pdf') renderPDFSpread();
+      if (state.currentBook.type === 'pdf') {
+        state.currentPage = normalizePDFSpreadStart(state.currentPage);
+        renderPDFSpread();
+      }
       else if (state.rendition) {
         try { state.rendition.spread(state.spread ? 'auto' : 'none'); } catch (_) {}
         refreshReaderLayout(80);
@@ -3116,9 +3157,12 @@
 
   function updateReadingPlaceButtons() {
     const place = state.currentBook?.readingPlace;
-    els.returnPlaceBtn.disabled = !place;
-    els.returnPlaceBtn.classList.toggle('active', !!place);
-    els.returnPlaceBtn.title = place ? `Quay lại ${place.label}` : 'Chưa có vị trí đã lưu';
+    [els.returnPlaceBtn, els.mobileReturnPlaceBtn].forEach(button => {
+      if (!button) return;
+      button.disabled = !place;
+      button.classList.toggle('active', !!place);
+      button.title = place ? `Quay lại ${place.label}` : 'Chưa có vị trí đã lưu';
+    });
   }
 
   async function toggleBookmark() {

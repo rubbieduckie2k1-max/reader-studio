@@ -1583,3 +1583,154 @@ body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E
   .favorite-quote-card blockquote { font-size:20px; }
   .favorite-quote-source { align-items:flex-start; flex-direction:column; }
 }
+
+/* Reader Studio 1.9.2 — compact mobile reader, dropdown genres and stable page turns */
+.sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
+.category-filter-select {
+  position:relative;
+  width:min(420px,100%);
+  display:block;
+}
+.category-filter-select::after {
+  content:"⌄";
+  position:absolute;
+  right:16px;
+  top:50%;
+  transform:translateY(-54%);
+  color:var(--accent);
+  font-size:15px;
+  pointer-events:none;
+}
+.category-filter-select select {
+  width:100%;
+  min-height:48px;
+  padding:0 44px 0 16px;
+  appearance:none;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface);
+  color:var(--text);
+  font:750 12px "Be Vietnam Pro",sans-serif;
+  outline:0;
+  cursor:pointer;
+}
+.category-filter-select select:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 13%,transparent);
+}
+
+.book-collection-dropdown { position:relative; }
+.book-collection-dropdown > summary {
+  min-height:42px;
+  padding:0 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  overflow:hidden;
+  list-style:none;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--surface-2);
+  color:var(--text);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.book-collection-dropdown > summary::-webkit-details-marker { display:none; }
+.book-collection-dropdown > summary span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.book-collection-dropdown[open] > summary { border-color:var(--accent); border-radius:10px 10px 0 0; }
+.book-collection-dropdown .book-collection-choices {
+  max-height:190px;
+  padding:8px;
+  grid-template-columns:1fr;
+  gap:5px;
+  overflow:auto;
+  border:1px solid var(--line);
+  border-top:0;
+  border-radius:0 0 10px 10px;
+  background:var(--surface);
+  box-shadow:0 12px 24px rgba(48,38,34,.12);
+}
+.book-collection-dropdown .collection-check { min-height:36px; border-color:transparent; background:transparent; }
+.book-collection-dropdown .collection-check:hover { border-color:var(--line); background:var(--surface-2); }
+
+.mobile-page-jump,.mobile-reader-action { display:none; }
+
+@media (max-width:780px) {
+  .reader-view { grid-template-rows:58px 50px minmax(0,1fr); }
+  .reader-topbar .reading-place-controls { display:none; }
+  .mobile-reader-toolbar {
+    min-width:0;
+    display:flex;
+    align-items:center;
+    justify-content:stretch;
+    gap:4px;
+    padding:6px 7px;
+  }
+  .mobile-page-jump {
+    min-width:92px;
+    flex:1 1 118px;
+    height:36px;
+    padding:2px 8px;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    overflow:hidden;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface-2);
+    color:var(--muted);
+    font-size:10px;
+    font-weight:750;
+  }
+  .mobile-page-jump input {
+    min-width:0;
+    width:49px;
+    height:29px;
+    padding:0 4px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--text);
+    text-align:center;
+    font:750 12px "Be Vietnam Pro",sans-serif;
+    outline:0;
+  }
+  .mobile-page-jump strong { max-width:44px; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
+  .mobile-reader-action {
+    width:34px;
+    height:36px;
+    flex:0 0 34px;
+    place-items:center;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:15px;
+    font-weight:800;
+  }
+  #mobileSavePlaceBtn { color:var(--accent); font-size:11px; }
+  .mobile-reader-action.active { border-color:color-mix(in srgb,var(--accent) 35%,var(--line)); background:var(--accent-soft); color:var(--accent); }
+  .mobile-reader-action:disabled { opacity:.36; }
+  .mobile-selection-btn { min-width:34px; min-height:36px; padding:0 8px; justify-content:center; }
+  .mobile-zoom-controls { height:36px; }
+  .mobile-zoom-controls button { width:26px; height:30px; }
+  .mobile-zoom-controls span { min-width:34px; }
+  .reading-list-section { display:grid; gap:10px; }
+  .category-filter-select { width:100%; }
+}
+
+@media (max-width:520px) {
+  .mobile-selection-btn span { display:none; }
+  .mobile-zoom-controls span { min-width:31px; font-size:9px; }
+  .book-collection-dropdown .book-collection-choices { max-height:155px; }
+}
+
+@media (max-width:360px) {
+  .mobile-reader-toolbar { gap:3px; padding-left:5px; padding-right:5px; }
+  .mobile-page-jump { min-width:84px; padding-left:5px; padding-right:5px; }
+  .mobile-page-jump input { width:43px; }
+  .mobile-reader-action,.mobile-selection-btn { width:32px; flex-basis:32px; padding:0; }
+  .mobile-zoom-controls span { display:none; }
+}

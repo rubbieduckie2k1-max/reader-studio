@@ -1,8 +1,8 @@
-# Reader Studio 1.9.1
+# Reader Studio 1.9.2
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.9.1 giữ nguyên toàn bộ chức năng của 1.9.0 và làm bìa sách đã ghim tự giãn theo chiều cao thực của hàng hero/Quote of the Day. Bìa luôn giữ đúng tỷ lệ, tự lớn hoặc nhỏ theo chiều cao khung bên cạnh và được bố trí trong một cột riêng để không đè lên tiêu đề sách.
+Phiên bản 1.9.2 giữ nguyên giao diện sách ghim/Quote of the Day của 1.9.1, đồng thời tối ưu thanh đọc trên điện thoại, chuyển bộ lọc thể loại sang dropdown và sửa điều hướng hai trang để một thao tác vuốt chỉ lật đúng một lần. Mobile có thể nhập nhanh số trang, xem tổng trang, lưu chỗ và quay lại chỗ đã lưu ngay trên cùng một thanh công cụ.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.9.1 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.9.2 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.1 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.2 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
@@ -106,6 +106,9 @@ Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về
 - Tạo series và liên kết từng cuốn theo thứ tự phần; tiến độ đọc vẫn được lưu riêng cho từng cuốn.
 - PDF reader: fit width, zoom, 1 trang / 2 trang, fullscreen.
 - EPUB reader: paginated reader, tăng/giảm cỡ chữ, 1/2 trang.
+- Trên mobile, nhập số trang, xem tổng trang, lưu chỗ, quay lại chỗ đã lưu, đánh dấu và zoom trên cùng một thanh gọn.
+- Chế độ hai trang khóa điều hướng trong lúc chuyển và chỉ xử lý khi cử chỉ vuốt kết thúc, tránh lật hai lần hoặc bỏ qua trang cuối chương.
+- Bộ lọc thể loại trong thư viện và phần chọn thể loại khi sửa sách đều dùng dropdown; vẫn hỗ trợ một sách thuộc nhiều thể loại.
 - Highlight 3 màu vintage (aged gold, tobacco, oxblood), underline và strike marker. Màu tối dùng chữ sáng trong danh sách ghi chú để giữ độ tương phản.
 - Click vào đoạn đã đánh dấu để sửa note hoặc xóa highlight/underline.
 - Reader tự dàn lại trang khi mở hoặc đóng mục lục và bảng ghi chú.
