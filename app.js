@@ -866,7 +866,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.0', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.1', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }

@@ -1466,13 +1466,20 @@ body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { c
   width:100%;
   min-height:330px;
   margin:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(260px,1fr);
+  align-items:stretch;
 }
-.library-feature-row .library-hero-copy { width:62%; padding:62px 34px; }
+.library-feature-row .library-hero-copy { width:auto; padding:48px 24px 48px 34px; align-self:center; }
 .library-feature-row .library-hero h2 { font-size:clamp(35px,3.3vw,48px); }
-.library-feature-row .library-hero-stage { right:1%; width:41%; }
-.library-feature-row .library-hero-cover { right:24px; top:38px; width:170px; }
-.library-feature-row .library-hero-reflection { right:112px; top:43px; width:195px; height:260px; }
-.library-feature-row .library-hero-empty { min-height:312px; padding:44px; }
+.library-feature-row .library-hero-stage { position:relative; inset:auto; width:auto; height:100%; }
+.library-feature-row .library-hero-cover {
+  right:20px; top:16px; bottom:16px; width:auto; height:auto; aspect-ratio:2/3;
+}
+.library-feature-row .library-hero-reflection {
+  right:30%; top:24px; bottom:24px; width:auto; height:auto; aspect-ratio:2/3;
+}
+.library-feature-row .library-hero-empty { grid-column:1/-1; min-height:312px; padding:44px; }
 
 .quote-of-day-card {
   min-width:0;
@@ -1559,11 +1566,11 @@ body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E
 }
 @media (max-width:900px) {
   .library-feature-row { margin:0 18px; }
-  .library-feature-row .library-hero { margin:0; min-height:500px; }
+  .library-feature-row .library-hero { display:block; margin:0; min-height:500px; }
   .library-feature-row .library-hero-copy { width:100%; padding:42px 28px; }
-  .library-feature-row .library-hero-stage { top:190px; width:100%; height:310px; }
-  .library-feature-row .library-hero-cover { right:14%; top:20px; width:180px; }
-  .library-feature-row .library-hero-reflection { right:34%; top:25px; width:200px; height:270px; }
+  .library-feature-row .library-hero-stage { position:absolute; inset:190px 0 auto auto; width:100%; height:310px; }
+  .library-feature-row .library-hero-cover { right:14%; top:20px; bottom:auto; width:180px; height:auto; }
+  .library-feature-row .library-hero-reflection { right:34%; top:25px; bottom:auto; width:200px; height:270px; }
   .library-quotes-panel { padding:30px 18px 60px; }
 }
 @media (max-width:700px) {
