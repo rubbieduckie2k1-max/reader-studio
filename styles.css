@@ -1659,6 +1659,7 @@ body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E
 
 @media (max-width:780px) {
   .reader-view { grid-template-rows:58px 50px minmax(0,1fr); }
+  .reader-center-info { display:none!important; }
   .reader-topbar .reading-place-controls { display:none; }
   .mobile-reader-toolbar {
     min-width:0;
@@ -1669,6 +1670,7 @@ body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E
     padding:6px 7px;
   }
   .mobile-page-jump {
+    display:flex;
     min-width:92px;
     flex:1 1 118px;
     height:36px;
@@ -1699,6 +1701,7 @@ body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E
   }
   .mobile-page-jump strong { max-width:44px; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
   .mobile-reader-action {
+    display:grid;
     width:34px;
     height:36px;
     flex:0 0 34px;
