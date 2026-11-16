@@ -1196,6 +1196,10 @@ body.dark .book-card .book-author,body.dark .book-card .mini-progress > span { c
 .sidebar-filter-box select { width:100%; min-width:0; height:39px; padding:0 34px 0 11px; border:1px solid rgba(237,226,207,.22); border-radius:9px; color:#FFF9EF; background:#3A2D28; outline:0; }
 .sidebar-filter-box option { color:#302622; background:#FFF9EF; }
 .sidebar-filter-box small { min-height:14px; color:rgba(237,226,207,.56); font-size:10px; }
+.sidebar-filter-control { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) 39px; gap:7px; }
+.sidebar-filter-manage { width:39px; height:39px; display:grid; place-items:center; border:1px solid rgba(237,226,207,.22); border-radius:9px; background:#3A2D28; color:#E0B97F; font-size:12px; font-weight:800; letter-spacing:1px; }
+.sidebar-filter-manage:hover:not(:disabled) { background:rgba(237,226,207,.11); border-color:#A97B5B; }
+.sidebar-filter-manage:disabled { opacity:.32; cursor:not-allowed; }
 .sidebar-manage-btn { width:100%; min-height:42px; border:1px dashed #A97B5B; border-radius:11px; color:#E0B97F; font-size:12px; font-weight:750; }
 .sidebar-manage-btn:hover { background:rgba(237,226,207,.07); }
 

@@ -1,8 +1,8 @@
-# Reader Studio 1.9.3
+# Reader Studio 1.9.4
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.9.3 sửa lỗi hiển thị của thanh đọc mobile trong 1.9.2: nút lưu chỗ và quay lại được bật đúng trên điện thoại, thanh số trang desktop không còn chiếm một hàng riêng, và toàn bộ số trang / lưu chỗ / quay lại / đánh dấu / zoom nằm trên cùng một thanh. Các cải tiến dropdown thể loại và điều hướng hai trang của 1.9.2 vẫn được giữ nguyên.
+Phiên bản 1.9.4 bổ sung quản lý trực tiếp thể loại và series từ sidebar. Chọn một thể loại/series cụ thể rồi bấm nút ••• để đổi tên hoặc xóa; xóa chỉ gỡ nhóm/liên kết, toàn bộ sách vẫn được giữ nguyên. Các bản sửa thanh đọc mobile, dropdown thể loại và điều hướng hai trang vẫn được giữ nguyên.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.9.3 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.9.4 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.3 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.4 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.

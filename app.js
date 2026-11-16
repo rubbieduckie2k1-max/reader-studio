@@ -102,7 +102,7 @@
     [
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','quoteOfDay','libraryResultCount',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
-      'collectionFilterSelect','collectionFilterMeta','seriesFilterSelect','seriesFilterMeta','authorFilterSelect','authorFilterMeta','createSeriesBtn',
+      'collectionFilterSelect','collectionFilterMeta','manageCollectionBtn','seriesFilterSelect','seriesFilterMeta','manageSeriesBtn','authorFilterSelect','authorFilterMeta','createSeriesBtn',
       'libraryBooksPanel','libraryStatusPanel','libraryQuotesPanel','favoriteQuoteCount','favoriteQuoteList','statusCompletedBooks','statusCompletionTotal','statusNeverCompleted','statusCompletedBadge','statusIncompleteBadge','statusCompletedList','statusIncompleteList','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookSearch','globalNotebookEmpty','createNotebookNoteBtn','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState','notebookNoteModal','notebookNoteBookSelect','notebookNoteTitle','saveNewNotebookNoteBtn',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel','pdfPageJump','pageNumberInput','pageTotalLabel',
@@ -867,7 +867,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.3', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.4', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -904,6 +904,14 @@
     });
     els.bookCreateCollectionBtn.addEventListener('click', () => openCollectionModal());
     els.createSeriesBtn?.addEventListener('click', () => openSeriesModal());
+    els.manageCollectionBtn?.addEventListener('click', () => {
+      const id = els.collectionFilterSelect.value;
+      if (state.collections.some(item => item.id === id)) openCollectionModal(id);
+    });
+    els.manageSeriesBtn?.addEventListener('click', () => {
+      const id = els.seriesFilterSelect.value;
+      if (state.series.some(item => item.id === id)) openSeriesModal(id);
+    });
     els.collectionFilterSelect?.addEventListener('change', () => {
       state.activeCollectionId = els.collectionFilterSelect.value;
       showLibraryPanel('books');
@@ -1306,6 +1314,7 @@
         ...state.collections.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${collectionCount(item)})</option>`)
       ].join('');
       els.collectionFilterSelect.value = state.activeCollectionId;
+      els.manageCollectionBtn.disabled = !state.collections.some(item => item.id === state.activeCollectionId);
       const selected = state.activeCollectionId === 'all' ? state.books.length : state.activeCollectionId === 'unfiled' ? unfiledCount : collectionCount(state.collections.find(item => item.id === state.activeCollectionId) || {bookIds:[]});
       els.collectionFilterMeta.textContent = `${selected} cuốn sách`;
     }
@@ -1351,6 +1360,7 @@
       ...state.series.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${count(item.id)})</option>`)
     ].join('');
     els.seriesFilterSelect.value = state.activeSeriesId;
+    els.manageSeriesBtn.disabled = !state.series.some(item => item.id === state.activeSeriesId);
     const selected = state.activeSeriesId === 'all' ? state.books.length : state.activeSeriesId === 'standalone' ? standalone : count(state.activeSeriesId);
     els.seriesFilterMeta.textContent = `${selected} cuốn sách`;
   }

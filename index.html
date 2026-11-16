@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.9.3" />
-  <link rel="stylesheet" href="styles.css?v=1.9.3" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.9.4" />
+  <link rel="stylesheet" href="styles.css?v=1.9.4" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -28,14 +28,14 @@
             <button class="library-nav-tab" data-library-panel="quotes"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v6H8v5H4v-6c0-3 1-5 3-5Zm10 0h3v6h-3v5h-4v-6c0-3 1-5 4-5Z"/></svg><b>Quote yêu thích</b></button>
           </nav>
           <div class="library-sidebar-label library-filter-label">BỘ LỌC THƯ VIỆN</div>
-          <label class="sidebar-filter-box"><span>Thể loại</span><select id="collectionFilterSelect" aria-label="Lọc theo thể loại"></select><small id="collectionFilterMeta"></small></label>
-          <label class="sidebar-filter-box"><span>Series</span><select id="seriesFilterSelect" aria-label="Lọc theo series"></select><small id="seriesFilterMeta"></small></label>
+          <div class="sidebar-filter-box"><span>Thể loại</span><div class="sidebar-filter-control"><select id="collectionFilterSelect" aria-label="Lọc theo thể loại"></select><button id="manageCollectionBtn" class="sidebar-filter-manage" type="button" title="Đổi tên hoặc xóa thể loại" aria-label="Đổi tên hoặc xóa thể loại" disabled>•••</button></div><small id="collectionFilterMeta"></small></div>
+          <div class="sidebar-filter-box"><span>Series</span><div class="sidebar-filter-control"><select id="seriesFilterSelect" aria-label="Lọc theo series"></select><button id="manageSeriesBtn" class="sidebar-filter-manage" type="button" title="Đổi tên hoặc xóa series" aria-label="Đổi tên hoặc xóa series" disabled>•••</button></div><small id="seriesFilterMeta"></small></div>
           <label class="sidebar-filter-box"><span>Tác giả</span><select id="authorFilterSelect" aria-label="Lọc theo tác giả"></select><small id="authorFilterMeta"></small></label>
           <button id="createSeriesBtn" class="sidebar-manage-btn" type="button">＋ Tạo series</button>
           <div id="collectionsBar" class="hidden" aria-hidden="true"></div>
           <div id="authorsBar" class="hidden" aria-hidden="true"></div>
         </div>
-        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.9.3</span></div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.9.4</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -378,7 +378,7 @@
   <div id="collectionModal" class="modal collection-modal hidden">
     <div class="modal-header"><strong id="collectionModalTitle">Tạo thể loại</strong><button class="icon-btn compact modal-close">×</button></div>
     <label class="modal-field">Tên thể loại<input id="collectionNameInput" type="text" maxlength="60" placeholder="Ví dụ: Văn học, Essays, Non-fiction..." /></label>
-    <div class="modal-actions split-actions"><button id="deleteCollectionBtn" class="danger-btn hidden" type="button">Xóa nhóm</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveCollectionBtn" class="primary-btn" type="button">Lưu nhóm</button></div></div>
+    <div class="modal-actions split-actions"><button id="deleteCollectionBtn" class="danger-btn hidden" type="button">Xóa thể loại</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveCollectionBtn" class="primary-btn" type="button">Lưu thể loại</button></div></div>
   </div>
 
   <div id="seriesModal" class="modal collection-modal hidden">
@@ -403,8 +403,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.9.3"></script>
+  <script src="config.js?v=1.9.4"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.9.3"></script>
+  <script src="app.js?v=1.9.4"></script>
 </body>
 </html>
