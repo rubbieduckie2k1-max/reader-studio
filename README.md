@@ -1,8 +1,8 @@
-# Reader Studio 1.7.4
+# Reader Studio 1.8.0
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.7.4 giữ nguyên toàn bộ chức năng đọc PDF/EPUB, highlight, underline, note, notebook, bookmark, thay bìa, Reading List, pin sách, lịch sử hoàn thành và Supabase sync. Trên máy tính, giao diện thư viện dùng bìa cố định tỷ lệ 2:3 và cho phép chọn 1–5 sách mỗi hàng; chế độ 1–3 luôn hiện tên/tác giả, còn 4–5 chỉ hiện thông tin khi hover hoặc chạm. Trên điện thoại, thư viện cố định 3 sách mỗi hàng, luôn hiện tên sách tối đa hai dòng và tác giả một dòng; chạm vào sách mở bảng thao tác đọc, ghim hoặc tùy chỉnh. Bộ đếm tác giả dùng số tác giả duy nhất, Status sách có danh sách gọn chỉ gồm tên sách và tác giả. Giao diện Vintage Library dùng nền giấy #FFF9EF, sidebar walnut, hỗ trợ dark mode và điều chỉnh kích thước UI 80–110%.
+Phiên bản 1.8.0 giữ nguyên toàn bộ chức năng đọc PDF/EPUB, highlight, underline, note, notebook, bookmark, thay bìa, Thể loại, pin sách, lịch sử hoàn thành và Supabase sync. Bản này bổ sung Series với thứ tự Phần I/II/III, ô nhập số trang trực tiếp cho PDF và tổng số trang, đồng thời chỉ giữ chế độ 4/5/6 sách mỗi hàng trên máy tính. Tên sách, tác giả và phần trăm đọc xuất hiện khi hover; trên điện thoại thư viện vẫn cố định 3 sách mỗi hàng và luôn hiện thông tin. Nút ghim được chuyển khỏi bìa vào menu sách, bộ lọc định dạng PDF/EPUB được bỏ, và sidebar được cố định kín chiều cao màn hình. Giao diện dùng nền giấy #FFF9EF, sidebar walnut, hỗ trợ dark mode và điều chỉnh kích thước UI 80–110%.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.7.4 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.8.0 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.7.4 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.8.0 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
@@ -102,7 +102,8 @@ Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về
 - Sidebar thư viện gồm **Tổng / Nhóm / Note**. Bấm **‹** để ẩn và nút **›** ở mép trái để mở lại; lựa chọn được ghi nhớ cho lần sau.
 - Trên điện thoại, bấm **☰** để mở sidebar dạng trượt và bấm **×** để đóng.
 - Library: PDF/EPUB, ảnh bìa tùy chỉnh, sửa tên sách/tác giả và tiến độ đọc.
-- Tạo, đổi tên, xóa reading list/nhóm sách; một cuốn sách có thể nằm trong nhiều nhóm.
+- Tạo, đổi tên, xóa thể loại; một cuốn sách có thể nằm trong nhiều thể loại.
+- Tạo series và liên kết từng cuốn theo thứ tự phần; tiến độ đọc vẫn được lưu riêng cho từng cuốn.
 - PDF reader: fit width, zoom, 1 trang / 2 trang, fullscreen.
 - EPUB reader: paginated reader, tăng/giảm cỡ chữ, 1/2 trang.
 - Highlight 3 màu vintage (aged gold, tobacco, oxblood), underline và strike marker. Màu tối dùng chữ sáng trong danh sách ghi chú để giữ độ tương phản.

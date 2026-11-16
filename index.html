@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="manifest" href="manifest.webmanifest?v=1.7.4" />
-  <link rel="stylesheet" href="styles.css?v=1.7.4" />
+  <link rel="manifest" href="manifest.webmanifest?v=1.8.0" />
+  <link rel="stylesheet" href="styles.css?v=1.8.0" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -27,13 +27,14 @@
             <button class="library-nav-tab" data-library-panel="notebooks"><svg class="library-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg><b>Ghi chú chung</b></button>
           </nav>
           <div class="library-sidebar-label library-filter-label">BỘ LỌC THƯ VIỆN</div>
-          <label class="sidebar-filter-box"><span>Reading list</span><select id="collectionFilterSelect" aria-label="Lọc theo reading list"></select><small id="collectionFilterMeta"></small></label>
+          <label class="sidebar-filter-box"><span>Thể loại</span><select id="collectionFilterSelect" aria-label="Lọc theo thể loại"></select><small id="collectionFilterMeta"></small></label>
+          <label class="sidebar-filter-box"><span>Series</span><select id="seriesFilterSelect" aria-label="Lọc theo series"></select><small id="seriesFilterMeta"></small></label>
           <label class="sidebar-filter-box"><span>Tác giả</span><select id="authorFilterSelect" aria-label="Lọc theo tác giả"></select><small id="authorFilterMeta"></small></label>
-          <button id="manageCollectionsBtn" class="sidebar-manage-btn" type="button">＋ Quản lý reading list</button>
+          <button id="createSeriesBtn" class="sidebar-manage-btn" type="button">＋ Tạo series</button>
           <div id="collectionsBar" class="hidden" aria-hidden="true"></div>
           <div id="authorsBar" class="hidden" aria-hidden="true"></div>
         </div>
-        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.7.4</span></div>
+        <div class="library-sidebar-foot"><span>Reader Studio</span><span>1.8.0</span></div>
       </aside>
 
       <button id="librarySidebarShowBtn" class="library-sidebar-show hidden" title="Hiện sidebar" aria-label="Hiện sidebar" aria-expanded="false">›</button>
@@ -42,7 +43,6 @@
         <header class="library-brandbar">
           <div class="brandline"><div class="brand-icon">▣</div><div><strong>Reader Studio</strong></div></div>
           <div class="library-brandbar-actions">
-            <span class="vintage-label">VINTAGE LIBRARY</span>
             <span id="syncStatus" class="sync-status" title="Trạng thái đồng bộ"><i></i><span>Chỉ lưu trên máy</span></span>
             <button id="accountBtn" class="secondary-btn account-btn">Đăng nhập</button>
             <button id="libraryThemeBtn" class="icon-btn" title="Đổi giao diện">☾</button>
@@ -55,7 +55,7 @@
             <div><h1>Thư viện của bạn</h1></div>
           </div>
           <div class="library-heading-tools">
-            <form class="search-box" role="search" autocomplete="off" onsubmit="return false"><span>⌕</span><input id="librarySearch" type="search" name="book-search-query" placeholder="Tìm sách, tác giả..." autocomplete="new-password" autocapitalize="none" spellcheck="false" aria-autocomplete="none" data-form-type="other" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" readonly /></form>
+            <form class="search-box" role="search" autocomplete="off" onsubmit="return false"><span>⌕</span><input id="librarySearch" type="search" name="book-search-query" placeholder="Tìm sách, tác giả, series..." autocomplete="new-password" autocapitalize="none" spellcheck="false" aria-autocomplete="none" data-form-type="other" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" readonly /></form>
             <button id="addBookBtn" class="primary-btn">＋ Thêm sách</button>
             <input id="bookFileInput" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" hidden />
           </div>
@@ -65,16 +65,15 @@
           <section id="libraryHero" class="library-hero hidden" aria-label="Tiếp tục đọc"></section>
 
           <section class="reading-list-section">
-            <div class="reading-list-head"><h2>Reading list</h2><button type="button" data-create-collection-main>Quản lý nhóm →</button></div>
-            <div id="collectionsChips" class="collections-chips" aria-label="Reading list"></div>
+            <div class="reading-list-head"><h2>Thể loại</h2></div>
+            <div id="collectionsChips" class="collections-chips" aria-label="Thể loại"></div>
           </section>
 
           <div class="library-tools library-grid-tools">
             <div class="library-result-count">Hiển thị <strong id="libraryResultCount">0 cuốn sách</strong></div>
             <div class="library-view-controls">
-              <div class="view-control-group" aria-label="Số sách mỗi hàng"><span>Mỗi hàng</span><button data-grid-cols="1">1</button><button data-grid-cols="2">2</button><button data-grid-cols="3">3</button><button data-grid-cols="4">4</button><button data-grid-cols="5">5</button></div>
+              <div class="view-control-group" aria-label="Số sách mỗi hàng"><span>Mỗi hàng</span><button data-grid-cols="4">4</button><button data-grid-cols="5">5</button><button data-grid-cols="6">6</button></div>
               <span class="mobile-grid-fixed" aria-label="Mobile cố định ba sách mỗi hàng">Mobile: 3 sách/hàng</span>
-              <div class="segmented small"><button class="active" data-filter="all">Tất cả</button><button data-filter="pdf">PDF</button><button data-filter="epub">EPUB</button></div>
             </div>
           </div>
 
@@ -145,7 +144,7 @@
           <button id="leftSidebarBtn" class="icon-btn" title="Mục lục">☰</button>
           <div class="reader-book-info"><strong id="readerTitle">Sách</strong><span id="readerAuthor"></span></div>
         </div>
-        <div class="reader-center-info"><span id="locationLabel">—</span></div>
+        <div class="reader-center-info"><div id="pdfPageJump" class="reader-page-jump hidden"><span>Trang</span><input id="pageNumberInput" type="number" min="1" inputmode="numeric" aria-label="Nhập số trang" /><span>/</span><strong id="pageTotalLabel">—</strong></div><span id="locationLabel">—</span></div>
         <div class="topbar-actions">
           <div class="zoom-controls">
             <button id="zoomOutBtn" class="icon-btn compact">−</button>
@@ -337,19 +336,29 @@
         <label>Tên sách<input id="bookTitleInput" type="text" maxlength="180" /></label>
         <label>Tác giả<input id="bookAuthorInput" type="text" maxlength="180" /></label>
         <div class="book-group-field">
-          <div class="field-label">Reading list / Nhóm sách</div>
+          <div class="field-label">Thể loại</div>
           <div id="bookCollectionChoices" class="book-collection-choices"></div>
-          <button id="bookCreateCollectionBtn" class="text-link-btn" type="button">＋ Tạo nhóm mới</button>
+          <button id="bookCreateCollectionBtn" class="text-link-btn" type="button">＋ Tạo thể loại mới</button>
+        </div>
+        <div class="book-series-field">
+          <div class="field-label">Series / Bộ truyện</div>
+          <div class="book-series-controls"><select id="bookSeriesSelect"><option value="">Không thuộc series</option></select><label>Phần<input id="bookSeriesOrderInput" type="number" min="1" step="1" value="1" /></label></div>
         </div>
       </div>
     </div>
-    <div class="modal-actions split-actions"><button id="deleteBookFromSettingsBtn" class="danger-btn" type="button">Xóa sách</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveBookSettingsBtn" class="primary-btn" type="button">Lưu thay đổi</button></div></div>
+    <div class="modal-actions split-actions"><div><button id="bookPinFromSettingsBtn" class="secondary-btn" type="button">⌖ Ghim lên đầu thư viện</button><button id="deleteBookFromSettingsBtn" class="danger-btn" type="button">Xóa sách</button></div><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveBookSettingsBtn" class="primary-btn" type="button">Lưu thay đổi</button></div></div>
   </div>
 
   <div id="collectionModal" class="modal collection-modal hidden">
-    <div class="modal-header"><strong id="collectionModalTitle">Tạo reading list</strong><button class="icon-btn compact modal-close">×</button></div>
-    <label class="modal-field">Tên nhóm / reading list<input id="collectionNameInput" type="text" maxlength="60" placeholder="Ví dụ: Văn học, Essays, Non-fiction..." /></label>
+    <div class="modal-header"><strong id="collectionModalTitle">Tạo thể loại</strong><button class="icon-btn compact modal-close">×</button></div>
+    <label class="modal-field">Tên thể loại<input id="collectionNameInput" type="text" maxlength="60" placeholder="Ví dụ: Văn học, Essays, Non-fiction..." /></label>
     <div class="modal-actions split-actions"><button id="deleteCollectionBtn" class="danger-btn hidden" type="button">Xóa nhóm</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveCollectionBtn" class="primary-btn" type="button">Lưu nhóm</button></div></div>
+  </div>
+
+  <div id="seriesModal" class="modal collection-modal hidden">
+    <div class="modal-header"><strong id="seriesModalTitle">Tạo series</strong><button class="icon-btn compact modal-close">×</button></div>
+    <label class="modal-field">Tên series<input id="seriesNameInput" type="text" maxlength="100" placeholder="Ví dụ: The Cazalet Chronicles" /></label>
+    <div class="modal-actions split-actions"><button id="deleteSeriesBtn" class="danger-btn hidden" type="button">Xóa series</button><div><button class="secondary-btn modal-cancel" type="button">Hủy</button><button id="saveSeriesBtn" class="primary-btn" type="button">Lưu series</button></div></div>
   </div>
 
   <div id="mobileBookSheetBackdrop" class="mobile-book-sheet-backdrop hidden"></div>
@@ -368,8 +377,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=1.7.4"></script>
+  <script src="config.js?v=1.8.0"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="app.js?v=1.7.4"></script>
+  <script src="app.js?v=1.8.0"></script>
 </body>
 </html>

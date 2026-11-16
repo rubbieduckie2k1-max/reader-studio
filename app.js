@@ -52,12 +52,15 @@
     globalNotebookBookId: GLOBAL_NOTEBOOK_ID,
     globalNotebookLoaded: false,
     collections: [],
+    series: [],
     pinnedBookId: null,
     mobileBookId: null,
     activeCollectionId: 'all',
+    activeSeriesId: 'all',
     activeAuthor: 'all',
-    libraryGridColumns: clamp(Number(localStorage.getItem('reader-library-grid-columns')) || 4, 1, 5),
+    libraryGridColumns: clamp(Number(localStorage.getItem('reader-library-grid-columns')) || 5, 4, 6),
     editingCollectionId: null,
+    editingSeriesId: null,
     collectionReturnBookId: null,
     editingBookId: null,
     pendingCover: null,
@@ -95,10 +98,10 @@
     [
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','libraryResultCount',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
-      'collectionFilterSelect','collectionFilterMeta','authorFilterSelect','authorFilterMeta','manageCollectionsBtn',
+      'collectionFilterSelect','collectionFilterMeta','seriesFilterSelect','seriesFilterMeta','authorFilterSelect','authorFilterMeta','createSeriesBtn',
       'libraryBooksPanel','libraryStatusPanel','statusCompletedBooks','statusCompletionTotal','statusNeverCompleted','statusCompletedBadge','statusIncompleteBadge','statusCompletedList','statusIncompleteList','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState',
-      'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel',
+      'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel','pdfPageJump','pageNumberInput','pageTotalLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
       'leftSidebar','rightSidebar','readerMain','pdfReader','pdfPages','epubReader','epubArea','mobileSelectionBtn','prevPageBtn','nextPageBtn',
       'footerPrevBtn','footerNextBtn','progressBar','progressText','mobileZoomControls','mobileZoomOutBtn','mobileZoomInBtn','mobileZoomLabel','readerLoading','tocList','bookmarkList','bookmarkCount',
@@ -106,8 +109,8 @@
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang','uiScaleRange','uiScaleValue','uiScalePresets',
       'saveSettingsBtn','bookSettingsModal','bookCoverPreview','customCoverInput','chooseCoverBtn','restoreCoverBtn','bookTitleInput','bookAuthorInput',
-      'bookCollectionChoices','bookCreateCollectionBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
-      'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
+      'bookCollectionChoices','bookCreateCollectionBtn','bookSeriesSelect','bookSeriesOrderInput','bookPinFromSettingsBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
+      'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','seriesModal','seriesModalTitle','seriesNameInput','deleteSeriesBtn','saveSeriesBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
       'signUpBtn','signInBtn','forgotPasswordBtn','resetPasswordPanel','resetPasswordIntro','newPassword','confirmNewPassword','resetPasswordMessage',
       'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn',
       'mobileBookSheetBackdrop','mobileBookSheet','mobileBookSheetCover','mobileBookSheetTitle','mobileBookSheetAuthor','mobileBookSheetProgress','mobileBookOpenBtn','mobileBookPinBtn','mobileBookSettingsBtn','toast'
@@ -860,7 +863,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.7.4', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.8.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -896,13 +899,13 @@
       if (bookId) await deleteBook(bookId);
     });
     els.bookCreateCollectionBtn.addEventListener('click', () => openCollectionModal());
-    $('[data-create-collection-main]')?.addEventListener('click', () => openCollectionModal());
-    els.manageCollectionsBtn?.addEventListener('click', () => {
-      const editable = state.collections.some(item => item.id === state.activeCollectionId) ? state.activeCollectionId : null;
-      openCollectionModal(editable);
-    });
+    els.createSeriesBtn?.addEventListener('click', () => openSeriesModal());
     els.collectionFilterSelect?.addEventListener('change', () => {
       state.activeCollectionId = els.collectionFilterSelect.value;
+      showLibraryPanel('books');
+    });
+    els.seriesFilterSelect?.addEventListener('change', () => {
+      state.activeSeriesId = els.seriesFilterSelect.value;
       showLibraryPanel('books');
     });
     els.authorFilterSelect?.addEventListener('change', () => {
@@ -914,14 +917,14 @@
     els.collectionNameInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') saveCollectionFromModal();
     });
+    els.saveSeriesBtn?.addEventListener('click', saveSeriesFromModal);
+    els.deleteSeriesBtn?.addEventListener('click', deleteCurrentSeries);
+    els.seriesNameInput?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') saveSeriesFromModal();
+    });
     $$('.library-nav-tab').forEach(tab => tab.addEventListener('click', () => showLibraryPanel(tab.dataset.libraryPanel)));
-    $$('.segmented [data-filter]').forEach(btn => btn.addEventListener('click', () => {
-      $$('.segmented [data-filter]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderLibrary();
-    }));
     $$('[data-grid-cols]').forEach(button => button.addEventListener('click', () => {
-      state.libraryGridColumns = clamp(Number(button.dataset.gridCols), 1, 5);
+      state.libraryGridColumns = clamp(Number(button.dataset.gridCols), 4, 6);
       localStorage.setItem('reader-library-grid-columns', String(state.libraryGridColumns));
       applyLibraryGridSettings();
     }));
@@ -942,6 +945,13 @@
       const bookId = state.mobileBookId;
       closeMobileBookSheet();
       if (bookId) openBookSettings(bookId);
+    });
+    els.bookPinFromSettingsBtn?.addEventListener('click', async () => {
+      const bookId = state.editingBookId;
+      if (!bookId) return;
+      await pinBook(bookId);
+      const book = state.books.find(item => item.id === bookId);
+      if (book) updateBookPinButton(book);
     });
 
     els.libraryThemeBtn.addEventListener('click', toggleTheme);
@@ -968,6 +978,20 @@
 
     [els.prevPageBtn, els.footerPrevBtn].forEach(b => b.addEventListener('click', () => navigate(-1)));
     [els.nextPageBtn, els.footerNextBtn].forEach(b => b.addEventListener('click', () => navigate(1)));
+    const jumpToPDFPage = async () => {
+      if (!state.pdfDoc || state.currentBook?.type !== 'pdf') return;
+      const step = state.spread ? 2 : 1;
+      const maxStart = state.spread ? Math.max(1, state.pdfDoc.numPages - ((state.pdfDoc.numPages + 1) % 2)) : state.pdfDoc.numPages;
+      let target = clamp(Math.round(Number(els.pageNumberInput.value) || 1), 1, maxStart);
+      if (state.spread && target > 1 && target % 2 === 0) target -= 1;
+      state.currentPage = target;
+      await renderPDFSpread();
+      els.pdfReader.scrollTop = 0;
+    };
+    els.pageNumberInput?.addEventListener('change', jumpToPDFPage);
+    els.pageNumberInput?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); jumpToPDFPage(); els.pageNumberInput.blur(); }
+    });
     els.zoomOutBtn.addEventListener('click', () => zoomBy(-0.1));
     els.zoomInBtn.addEventListener('click', () => zoomBy(0.1));
     els.mobileZoomOutBtn.addEventListener('click', () => zoomBy(-0.1));
@@ -1165,10 +1189,16 @@
   async function loadLibraryPreferences() {
     const row = await dbGet('notebooks', LIBRARY_PREFS_NOTEBOOK_ID).catch(() => null);
     state.pinnedBookId = row?.pinnedBookId && state.books.some(book => book.id === row.pinnedBookId) ? row.pinnedBookId : null;
+    state.series = (Array.isArray(row?.series) ? row.series : []).map(item => ({
+      id:String(item.id || uid()),
+      name:String(item.name || 'Series chưa đặt tên').trim().slice(0, 100),
+      createdAt:Number(item.createdAt || Date.now())
+    }));
+    if (!['all','standalone'].includes(state.activeSeriesId) && !state.series.some(item => item.id === state.activeSeriesId)) state.activeSeriesId = 'all';
   }
 
   async function saveLibraryPreferences() {
-    await dbPut('notebooks', { bookId:LIBRARY_PREFS_NOTEBOOK_ID, pinnedBookId:state.pinnedBookId || null, updatedAt:Date.now() });
+    await dbPut('notebooks', { bookId:LIBRARY_PREFS_NOTEBOOK_ID, pinnedBookId:state.pinnedBookId || null, series:state.series, updatedAt:Date.now() });
   }
 
   async function pinBook(bookId) {
@@ -1278,10 +1308,24 @@
     }
   }
 
+  function renderSeriesFilter() {
+    if (!els.seriesFilterSelect) return;
+    const count = id => state.books.filter(book => book.seriesId === id).length;
+    const standalone = state.books.filter(book => !book.seriesId || !state.series.some(item => item.id === book.seriesId)).length;
+    els.seriesFilterSelect.innerHTML = [
+      `<option value="all">Tất cả series (${state.series.length})</option>`,
+      `<option value="standalone">Sách lẻ (${standalone})</option>`,
+      ...state.series.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} (${count(item.id)})</option>`)
+    ].join('');
+    els.seriesFilterSelect.value = state.activeSeriesId;
+    const selected = state.activeSeriesId === 'all' ? state.books.length : state.activeSeriesId === 'standalone' ? standalone : count(state.activeSeriesId);
+    els.seriesFilterMeta.textContent = `${selected} cuốn sách`;
+  }
+
   function renderLibraryHero() {
     const book = state.books.find(item => item.id === state.pinnedBookId);
     if (!book) {
-      els.libraryHero.innerHTML = `<div class="library-hero-empty"><span class="hero-pin-symbol">⌖</span><div><div class="library-hero-eyebrow">KỆ SÁCH CỦA BẠN</div><h2>Ghim một cuốn sách</h2><p>Dùng nút ghim trên thẻ sách để đưa cuốn bạn muốn đọc lên đây.</p></div></div>`;
+      els.libraryHero.innerHTML = `<div class="library-hero-empty"><span class="hero-pin-symbol">⌖</span><div><div class="library-hero-eyebrow">SÁCH ĐÃ GHIM</div><h2>Chưa có sách được ghim</h2></div></div>`;
       els.libraryHero.classList.remove('hidden');
       return;
     }
@@ -1305,28 +1349,33 @@
 
   function renderLibrary() {
     const query = els.librarySearch.value.trim().toLowerCase();
-    const filter = $('.segmented [data-filter].active')?.dataset.filter || 'all';
     const assigned = new Set(state.collections.flatMap(item => item.bookIds));
     const activeCollection = state.collections.find(item => item.id === state.activeCollectionId);
     if (state.activeAuthor !== 'all' && !state.books.some(book => (String(book.author || 'Không rõ tác giả').trim() || 'Không rõ tác giả') === state.activeAuthor)) {
       state.activeAuthor = 'all';
     }
-    const books = state.books.filter(book => {
-      const matchesFilter = filter === 'all' || book.type === filter;
-      const matchesQuery = !query || `${book.title} ${book.author || ''}`.toLowerCase().includes(query);
+    let books = state.books.filter(book => {
+      const seriesName = state.series.find(item => item.id === book.seriesId)?.name || '';
+      const matchesQuery = !query || `${book.title} ${book.author || ''} ${seriesName}`.toLowerCase().includes(query);
       const author = String(book.author || 'Không rõ tác giả').trim() || 'Không rõ tác giả';
       const matchesAuthor = state.activeAuthor === 'all' || author === state.activeAuthor;
       const matchesCollection = state.activeCollectionId === 'all'
         || (state.activeCollectionId === 'unfiled' ? !assigned.has(book.id)
           : !!activeCollection?.bookIds.includes(book.id));
-      return matchesFilter && matchesQuery && matchesCollection && matchesAuthor;
+      const matchesSeries = state.activeSeriesId === 'all'
+        || (state.activeSeriesId === 'standalone' ? !book.seriesId : book.seriesId === state.activeSeriesId);
+      return matchesQuery && matchesCollection && matchesSeries && matchesAuthor;
     });
+    if (!['all','standalone'].includes(state.activeSeriesId)) {
+      books = books.slice().sort((a, b) => Number(a.seriesOrder || 9999) - Number(b.seriesOrder || 9999));
+    }
 
     renderCollectionsBar();
+    renderSeriesFilter();
     renderAuthorsBar();
     renderLibraryHero();
     els.libraryResultCount.textContent = `${books.length} cuốn sách`;
-    els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query || filter !== 'all');
+    els.libraryEmpty.classList.toggle('hidden', state.books.length > 0 || query);
     els.bookGrid.innerHTML = books.length ? books.map(book => {
       const progress = Math.round(book.progress || 0);
       const cover = book.cover
@@ -1334,16 +1383,16 @@
         : `<div class="cover-fallback"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Reader Studio')}</span></div>`;
       return `<article class="book-card" data-book-id="${book.id}" tabindex="0">
         <div class="book-cover">${cover}</div>
-        <div class="book-card-actions"><button class="card-pin${state.pinnedBookId === book.id ? ' active' : ''}" title="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-label="${state.pinnedBookId === book.id ? 'Bỏ ghim' : 'Ghim sách'}" aria-pressed="${state.pinnedBookId === book.id}" data-pin-book><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 4 6 6-3 1-4 4-1 5-2-2-4 4-1-1 4-4-2-2 5-1 4-4 1-3Z"/></svg></button><button class="card-menu" title="Đổi bìa và sắp xếp sách" aria-label="Tùy chỉnh sách">•••</button></div>
+        <div class="book-card-actions"><button class="card-menu" title="Mở menu sách" aria-label="Mở menu sách">•••</button></div>
         <div class="book-meta"><div class="book-title">${escapeHTML(book.title)}</div><div class="book-author">${escapeHTML(book.author || 'Không rõ tác giả')}</div>
           <div class="mini-progress"><div class="mini-progress-track"><span style="width:${progress}%"></span></div><span>${progress}%</span></div>
         </div>
       </article>`;
-    }).join('') : `<div class="collection-empty"><strong>Chưa có sách phù hợp</strong><span>Hãy đổi bộ lọc hoặc thêm sách vào reading list này.</span></div>`;
+    }).join('') : `<div class="collection-empty"><strong>Chưa có sách phù hợp</strong><span>Hãy đổi bộ lọc hoặc thêm sách vào thể loại này.</span></div>`;
 
     $$('.book-card', els.bookGrid).forEach(card => {
       card.addEventListener('click', e => {
-        if (e.target.closest('.card-menu,.card-pin')) return;
+        if (e.target.closest('.card-menu')) return;
         if (matchMedia('(max-width:700px)').matches) {
           openMobileBookSheet(card.dataset.bookId);
           return;
@@ -1358,10 +1407,6 @@
       $('.card-menu', card).addEventListener('click', e => {
         e.stopPropagation();
         openBookSettings(card.dataset.bookId);
-      });
-      $('.card-pin', card).addEventListener('click', e => {
-        e.stopPropagation();
-        pinBook(card.dataset.bookId);
       });
     });
   }
@@ -1430,10 +1475,27 @@
 
   function renderBookCollectionChoices(bookId) {
     if (!state.collections.length) {
-      els.bookCollectionChoices.innerHTML = '<span class="empty-choice">Chưa có nhóm nào. Bạn có thể tạo reading list mới.</span>';
+      els.bookCollectionChoices.innerHTML = '<span class="empty-choice">Chưa có thể loại nào.</span>';
       return;
     }
     els.bookCollectionChoices.innerHTML = state.collections.map(item => `<label class="collection-check"><input type="checkbox" value="${escapeHTML(item.id)}" ${item.bookIds.includes(bookId) ? 'checked' : ''} /><span>${escapeHTML(item.name)}</span></label>`).join('');
+  }
+
+  function renderBookSeriesChoice(book) {
+    if (!els.bookSeriesSelect) return;
+    els.bookSeriesSelect.innerHTML = [
+      '<option value="">Không thuộc series</option>',
+      ...state.series.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)}</option>`)
+    ].join('');
+    els.bookSeriesSelect.value = book.seriesId && state.series.some(item => item.id === book.seriesId) ? book.seriesId : '';
+    els.bookSeriesOrderInput.value = String(Math.max(1, Number(book.seriesOrder || 1)));
+    els.bookSeriesOrderInput.disabled = !els.bookSeriesSelect.value;
+    els.bookSeriesSelect.onchange = () => { els.bookSeriesOrderInput.disabled = !els.bookSeriesSelect.value; };
+  }
+
+  function updateBookPinButton(book) {
+    if (!els.bookPinFromSettingsBtn || !book) return;
+    els.bookPinFromSettingsBtn.textContent = state.pinnedBookId === book.id ? '⌖ Bỏ ghim khỏi đầu thư viện' : '⌖ Ghim lên đầu thư viện';
   }
 
   function openBookSettings(bookId) {
@@ -1446,6 +1508,8 @@
     els.bookAuthorInput.value = book.author || '';
     renderBookCoverPreview(book.cover, book.title);
     renderBookCollectionChoices(bookId);
+    renderBookSeriesChoice(book);
+    updateBookPinButton(book);
     els.customCoverInput.value = '';
     els.restoreCoverBtn.disabled = !book.customCover && !book.originalCover;
     openModal(els.bookSettingsModal);
@@ -1523,6 +1587,8 @@
       if (selected.has(item.id) && !hasBook) item.bookIds.push(book.id);
       if (!selected.has(item.id) && hasBook) item.bookIds = item.bookIds.filter(id => id !== book.id);
     });
+    book.seriesId = els.bookSeriesSelect.value || null;
+    book.seriesOrder = book.seriesId ? Math.max(1, Math.round(Number(els.bookSeriesOrderInput.value) || 1)) : null;
     book.updatedAt = Date.now();
     await dbPut('books', book);
     await saveCollections();
@@ -1535,7 +1601,7 @@
     const collection = state.collections.find(item => item.id === collectionId);
     state.collectionReturnBookId = !els.bookSettingsModal.classList.contains('hidden') ? state.editingBookId : null;
     state.editingCollectionId = collection?.id || null;
-    els.collectionModalTitle.textContent = collection ? 'Chỉnh sửa nhóm sách' : 'Tạo reading list';
+    els.collectionModalTitle.textContent = collection ? 'Chỉnh sửa thể loại' : 'Tạo thể loại';
     els.collectionNameInput.value = collection?.name || '';
     els.deleteCollectionBtn.classList.toggle('hidden', !collection);
     openModal(els.collectionModal);
@@ -1556,18 +1622,61 @@
     closeModals();
     await refreshLibrary();
     if (bookId) openBookSettings(bookId);
-    toast('Đã lưu reading list');
+    toast('Đã lưu thể loại');
   }
 
   async function deleteCurrentCollection() {
     const collection = state.collections.find(item => item.id === state.editingCollectionId);
-    if (!collection || !confirm(`Xóa nhóm “${collection.name}”? Sách bên trong vẫn được giữ lại.`)) return;
+    if (!collection || !confirm(`Xóa thể loại “${collection.name}”? Sách bên trong vẫn được giữ lại.`)) return;
     state.collections = state.collections.filter(item => item.id !== collection.id);
     if (state.activeCollectionId === collection.id) state.activeCollectionId = 'all';
     await saveCollections();
     closeModals();
     await refreshLibrary();
-    toast('Đã xóa nhóm · sách vẫn còn trong thư viện');
+    toast('Đã xóa thể loại · sách vẫn còn trong thư viện');
+  }
+
+  function openSeriesModal(seriesId = null) {
+    const item = state.series.find(series => series.id === seriesId);
+    state.editingSeriesId = item?.id || null;
+    els.seriesModalTitle.textContent = item ? 'Chỉnh sửa series' : 'Tạo series';
+    els.seriesNameInput.value = item?.name || '';
+    els.deleteSeriesBtn.classList.toggle('hidden', !item);
+    openModal(els.seriesModal);
+    setTimeout(() => els.seriesNameInput.focus(), 40);
+  }
+
+  async function saveSeriesFromModal() {
+    const name = els.seriesNameInput.value.trim();
+    if (!name) return toast('Hãy nhập tên series');
+    if (state.editingSeriesId) {
+      const item = state.series.find(series => series.id === state.editingSeriesId);
+      if (item) item.name = name;
+    } else {
+      state.series.push({ id:uid(), name, createdAt:Date.now() });
+    }
+    await saveLibraryPreferences();
+    closeModals();
+    await refreshLibrary();
+    toast('Đã lưu series');
+  }
+
+  async function deleteCurrentSeries() {
+    const item = state.series.find(series => series.id === state.editingSeriesId);
+    if (!item || !confirm(`Xóa series “${item.name}”? Các sách vẫn được giữ lại.`)) return;
+    state.series = state.series.filter(series => series.id !== item.id);
+    const affected = state.books.filter(book => book.seriesId === item.id);
+    for (const book of affected) {
+      book.seriesId = null;
+      book.seriesOrder = null;
+      book.updatedAt = Date.now();
+      await dbPut('books', book);
+    }
+    if (state.activeSeriesId === item.id) state.activeSeriesId = 'all';
+    await saveLibraryPreferences();
+    closeModals();
+    await refreshLibrary();
+    toast('Đã xóa series · sách vẫn còn trong thư viện');
   }
 
   async function showLibraryPanel(name) {
@@ -1836,8 +1945,12 @@
     await ensurePDFEngine();
     els.pdfReader.classList.remove('hidden');
     els.epubReader.classList.add('hidden');
+    els.pdfPageJump.classList.remove('hidden');
+    els.locationLabel.classList.add('hidden');
     state.pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(book.fileData.slice(0)) }).promise;
     state.currentPage = clamp(state.currentPage, 1, state.pdfDoc.numPages);
+    els.pageNumberInput.max = String(state.pdfDoc.numPages);
+    els.pageTotalLabel.textContent = String(state.pdfDoc.numPages);
     await buildPDFTOC();
     await renderPDFSpread();
     updatePDFProgress();
@@ -1975,7 +2088,9 @@
   function updatePDFProgress() {
     if (!state.pdfDoc) return;
     const pct = (state.currentPage / state.pdfDoc.numPages) * 100;
-    els.locationLabel.textContent = `Trang ${state.currentPage} / ${state.pdfDoc.numPages}`;
+    els.pageNumberInput.value = String(state.currentPage);
+    els.pageNumberInput.max = String(state.pdfDoc.numPages);
+    els.pageTotalLabel.textContent = String(state.pdfDoc.numPages);
     setProgress(pct);
     scheduleProgressSave({ page: state.currentPage }, pct);
   }
@@ -1985,6 +2100,8 @@
     await ensureEpubEngine();
     els.pdfReader.classList.add('hidden');
     els.epubReader.classList.remove('hidden');
+    els.pdfPageJump.classList.add('hidden');
+    els.locationLabel.classList.remove('hidden');
     els.epubArea.innerHTML = '';
     state.epubBook = ePub(book.fileData.slice(0));
     state.rendition = state.epubBook.renderTo('epubArea', {
@@ -3146,6 +3263,7 @@
     state.currentEditingAnnotation = null;
     state.editingBookId = null;
     state.editingCollectionId = null;
+    state.editingSeriesId = null;
     state.collectionReturnBookId = null;
   }
 
