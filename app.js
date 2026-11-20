@@ -61,8 +61,8 @@
     pinnedBookIndex: 0,
     libraryPage: 1,
     libraryRenderedPageSize: 0,
-    statusCompletedPage: 1,
-    statusIncompletePage: 1,
+    statusPage: 1,
+    statusFilter: 'all',
     mobileBookId: null,
     activeCollectionId: 'all',
     activeSeriesId: 'all',
@@ -108,7 +108,7 @@
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','quoteOfDay','libraryResultCount','libraryPagination',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
       'collectionFilterSelect','collectionFilterMeta','manageCollectionBtn','seriesFilterSelect','seriesFilterMeta','manageSeriesBtn','authorFilterSelect','authorFilterMeta','createSeriesBtn',
-      'libraryBooksPanel','libraryStatusPanel','libraryQuotesPanel','favoriteQuoteCount','favoriteQuoteList','statusCompletedBooks','statusCompletionTotal','statusNeverCompleted','statusCompletedBadge','statusIncompleteBadge','statusCompletedList','statusIncompleteList','statusCompletedPagination','statusIncompletePagination','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookSearch','globalNotebookEmpty','createNotebookNoteBtn','globalNotebookTitle','globalNotebookOpenBookBtn',
+      'libraryBooksPanel','libraryStatusPanel','libraryQuotesPanel','favoriteQuoteCount','favoriteQuoteList','statusTotalBooks','statusCompletedBooks','statusActiveBooks','statusFilterSelect','statusBookList','statusPagination','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookSearch','globalNotebookEmpty','createNotebookNoteBtn','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState','notebookNoteModal','notebookNoteBookSelect','notebookNoteTitle','saveNewNotebookNoteBtn',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel','pdfPageJump','pageNumberInput','pageTotalLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
@@ -872,7 +872,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.6', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.7', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -946,6 +946,11 @@
       if (e.key === 'Enter') saveSeriesFromModal();
     });
     $$('.library-nav-tab').forEach(tab => tab.addEventListener('click', () => showLibraryPanel(tab.dataset.libraryPanel)));
+    els.statusFilterSelect?.addEventListener('change', () => {
+      state.statusFilter = els.statusFilterSelect.value;
+      state.statusPage = 1;
+      renderStatusPanel();
+    });
     $$('[data-grid-cols]').forEach(button => button.addEventListener('click', () => {
       state.libraryGridColumns = clamp(Number(button.dataset.gridCols), 4, 6);
       state.libraryPage = 1;
@@ -1457,6 +1462,23 @@
       state.pinnedBookIndex = Number(button.dataset.heroIndex) || 0;
       renderLibraryHero();
     }));
+    if (totalPinned > 1) {
+      let touchStartX = null;
+      els.libraryHero.addEventListener('touchstart', event => {
+        touchStartX = event.touches?.[0]?.clientX ?? null;
+      }, { passive:true });
+      els.libraryHero.addEventListener('touchend', event => {
+        if (touchStartX === null) return;
+        const touchEndX = event.changedTouches?.[0]?.clientX ?? touchStartX;
+        const distance = touchEndX - touchStartX;
+        touchStartX = null;
+        if (Math.abs(distance) < 42) return;
+        state.pinnedBookIndex = distance < 0
+          ? (state.pinnedBookIndex + 1) % totalPinned
+          : (state.pinnedBookIndex - 1 + totalPinned) % totalPinned;
+        renderLibraryHero();
+      }, { passive:true });
+    }
   }
 
   function renderQuoteOfDay() {
@@ -1632,34 +1654,48 @@
   function renderStatusPanel() {
     if (!els.libraryStatusPanel) return;
     const completed = state.books.filter(book => completionCount(book) > 0);
-    const incomplete = state.books.filter(book => completionCount(book) === 0);
+    const active = state.books.filter(book => completionCount(book) === 0);
     const statusPageSize = 8;
-    const completedPages = Math.max(1, Math.ceil(completed.length / statusPageSize));
-    const incompletePages = Math.max(1, Math.ceil(incomplete.length / statusPageSize));
-    state.statusCompletedPage = clamp(state.statusCompletedPage, 1, completedPages);
-    state.statusIncompletePage = clamp(state.statusIncompletePage, 1, incompletePages);
-    const completedPageBooks = completed.slice((state.statusCompletedPage - 1) * statusPageSize, state.statusCompletedPage * statusPageSize);
-    const incompletePageBooks = incomplete.slice((state.statusIncompletePage - 1) * statusPageSize, state.statusIncompletePage * statusPageSize);
-    const total = completed.reduce((sum, book) => sum + completionCount(book), 0);
-    els.statusCompletedBooks.textContent = String(completed.length);
-    els.statusCompletionTotal.textContent = String(total);
-    els.statusNeverCompleted.textContent = String(incomplete.length);
-    els.statusCompletedBadge.textContent = String(completed.length);
-    els.statusIncompleteBadge.textContent = String(incomplete.length);
-    els.statusCompletedList.innerHTML = completedPageBooks.length ? completedPageBooks.map(book => {
-      return `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><span class="status-dot"></span><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span></div></article>`;
-    }).join('') : '<div class="status-empty">Chưa có cuốn sách nào được đọc xong.</div>';
-    els.statusIncompleteList.innerHTML = incompletePageBooks.length ? incompletePageBooks.map(book => `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}"><span class="status-dot"></span><div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span></div></article>`).join('') : `<div class="status-empty">${state.books.length ? 'Tất cả sách đều đã được hoàn thành ít nhất một lần.' : 'Chưa có sách trong thư viện.'}</div>`;
-    renderPagination(els.statusCompletedPagination, completedPages, state.statusCompletedPage, page => {
-      state.statusCompletedPage = page;
-      renderStatusPanel();
+    const filtered = state.books.filter(book => {
+      const progress = Number(book.progress || 0);
+      const completedTimes = completionCount(book);
+      if (state.statusFilter === 'completed') return completedTimes > 0;
+      if (state.statusFilter === 'reading') return progress > 0 && progress < 99.5;
+      if (state.statusFilter === 'unread') return completedTimes === 0 && progress <= 0;
+      return true;
     });
-    renderPagination(els.statusIncompletePagination, incompletePages, state.statusIncompletePage, page => {
-      state.statusIncompletePage = page;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / statusPageSize));
+    state.statusPage = clamp(state.statusPage, 1, totalPages);
+    const pageBooks = filtered.slice((state.statusPage - 1) * statusPageSize, state.statusPage * statusPageSize);
+    els.statusTotalBooks.textContent = String(state.books.length);
+    els.statusCompletedBooks.textContent = String(completed.length);
+    els.statusActiveBooks.textContent = String(active.length);
+    els.statusFilterSelect.value = state.statusFilter;
+    els.statusBookList.innerHTML = pageBooks.length ? pageBooks.map(book => {
+      const progress = clamp(Math.round(Number(book.progress || 0)), 0, 100);
+      const completedTimes = completionCount(book);
+      const statusClass = completedTimes > 0 ? 'completed' : progress > 0 ? 'reading' : 'unread';
+      const statusText = completedTimes > 0
+        ? `Đã hoàn thành ${completedTimes} lần`
+        : progress > 0 ? 'Đang đọc' : 'Chưa đọc';
+      return `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}" tabindex="0">
+        <strong class="status-progress">${progress}%</strong>
+        <div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span></div>
+        <span class="status-state ${statusClass}">${statusText}</span>
+      </article>`;
+    }).join('') : '<div class="status-empty">Không có sách phù hợp với trạng thái này.</div>';
+    renderPagination(els.statusPagination, totalPages, state.statusPage, page => {
+      state.statusPage = page;
       renderStatusPanel();
     });
     $$('[data-status-open]', els.libraryStatusPanel).forEach(row => row.addEventListener('click', e => {
       openBook(row.dataset.statusOpen);
+    }));
+    $$('[data-status-open]', els.libraryStatusPanel).forEach(row => row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openBook(row.dataset.statusOpen);
+      }
     }));
   }
 

@@ -1,8 +1,8 @@
-# Reader Studio 1.9.6
+# Reader Studio 1.9.7
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.9.6 bổ sung phân trang cho thư viện và Status sách, cho phép ghim tối đa hai cuốn rồi chuyển qua lại trong cùng một khung, đồng thời làm mới Quote of the Day theo đúng bảng màu vintage của Reader Studio. Dropdown thể loại trong phần tùy chỉnh sách nay nổi trên modal nên không làm thay đổi chiều cao của khung.
+Phiên bản 1.9.7 làm mới Status sách thành dashboard có thống kê, lọc trạng thái, danh sách chung và phân trang. Carousel hai sách ghim nay hoạt động đầy đủ trên desktop lẫn mobile, hỗ trợ nút chuyển, chấm trang và vuốt ngang trên màn hình cảm ứng.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.9.6 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.9.7 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.6 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.7 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.
@@ -102,8 +102,8 @@ Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về
 - Sidebar thư viện gồm **Tổng / Nhóm / Note**. Bấm **‹** để ẩn và nút **›** ở mép trái để mở lại; lựa chọn được ghi nhớ cho lần sau.
 - Trên điện thoại, bấm **☰** để mở sidebar dạng trượt và bấm **×** để đóng.
 - Library: PDF/EPUB, ảnh bìa tùy chỉnh, sửa tên sách/tác giả và tiến độ đọc.
-- Thư viện và hai danh sách trong Status sách được chia trang để không kéo dài vô hạn.
-- Có thể ghim tối đa hai cuốn sách; khung đầu thư viện chỉ hiện một cuốn và có nút chuyển qua lại.
+- Thư viện và Status sách được chia trang để không kéo dài vô hạn; Status có bộ lọc **Tất cả / Đã đọc xong / Đang đọc / Chưa đọc**.
+- Có thể ghim tối đa hai cuốn sách; khung đầu thư viện chỉ hiện một cuốn và hỗ trợ nút chuyển, chấm trang cùng thao tác vuốt ngang trên mobile.
 - Quote of the Day lấy từ các quote yêu thích và dùng cùng bảng màu vintage của toàn bộ giao diện.
 - Tạo, đổi tên, xóa thể loại; một cuốn sách có thể nằm trong nhiều thể loại.
 - Tạo series và liên kết từng cuốn theo thứ tự phần; tiến độ đọc vẫn được lưu riêng cho từng cuốn.
