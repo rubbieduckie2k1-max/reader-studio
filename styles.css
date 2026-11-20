@@ -1741,3 +1741,178 @@ body.dark .quote-day-button { border-color:#765E4E; background:#3B2E29; color:#E
   .mobile-reader-action,.mobile-selection-btn { width:32px; flex-basis:32px; padding:0; }
   .mobile-zoom-controls span { display:none; }
 }
+
+/* Reader Studio 1.9.6 — two pinned books, paged library/status and palette quote */
+.book-settings-modal { isolation:isolate; }
+.book-group-field { position:relative; z-index:12; }
+.book-collection-dropdown { position:relative; z-index:12; }
+.book-collection-dropdown[open] > summary { border-radius:10px; }
+.book-collection-dropdown .book-collection-choices {
+  position:absolute;
+  z-index:40;
+  top:calc(100% + 6px);
+  left:0;
+  right:0;
+  max-height:210px;
+  padding:8px;
+  overflow:auto;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface);
+  box-shadow:0 18px 42px rgba(48,38,34,.22);
+}
+
+.library-pagination {
+  min-height:42px;
+  margin:28px 0 4px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:7px;
+}
+
+.library-view[data-grid-columns="6"] .book-meta {
+  opacity:0;
+  transform:translateY(24px);
+  pointer-events:none;
+}
+.library-view[data-grid-columns="6"] .book-card:hover .book-meta,
+.library-view[data-grid-columns="6"] .book-card:focus-within .book-meta,
+.library-view[data-grid-columns="6"] .book-card.info-visible .book-meta {
+  opacity:1;
+  transform:none;
+  pointer-events:auto;
+}
+.library-pagination button {
+  min-width:39px;
+  height:39px;
+  padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface);
+  color:var(--text);
+  font-size:11px;
+  font-weight:800;
+  box-shadow:0 3px 10px rgba(48,38,34,.05);
+}
+.library-pagination button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.library-pagination button.active { border-color:var(--accent); background:var(--accent); color:#FFF9EF; }
+.library-pagination button:disabled { opacity:.38; cursor:not-allowed; }
+.pagination-gap { min-width:22px; color:var(--muted); text-align:center; }
+.status-pagination { margin:17px 0 0; }
+
+.library-hero-eyebrow > span {
+  margin-left:auto;
+  padding:6px 9px;
+  border:1px solid rgba(229,189,130,.28);
+  border-radius:999px;
+  color:#D8C3A4;
+  font-size:9px;
+  letter-spacing:0;
+  white-space:nowrap;
+}
+.library-hero-carousel {
+  width:min(330px,100%);
+  margin-top:25px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.library-hero-carousel > button {
+  width:35px;
+  height:35px;
+  flex:0 0 35px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(229,189,130,.28);
+  border-radius:50%;
+  color:#F3DEC0;
+  background:rgba(255,249,239,.04);
+  font-size:15px;
+}
+.library-hero-carousel > button:hover { border-color:#A6626A; background:#71343C; color:#FFF9EF; }
+.library-hero-carousel > span { min-width:32px; color:#BDA890; font-size:9px; font-weight:750; white-space:nowrap; }
+.library-hero-dots { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; }
+.library-hero-dots button {
+  width:8px;
+  height:8px;
+  padding:0;
+  border:0;
+  border-radius:99px;
+  background:#72594D;
+  transition:width .2s ease,background .2s ease;
+}
+.library-hero-dots button.active { width:25px; background:#E5BD82; }
+
+.quote-of-day-card {
+  position:relative;
+  isolation:isolate;
+  min-height:330px;
+  padding:35px 31px 28px;
+  border:1px solid #8E6752;
+  border-radius:20px;
+  background:
+    radial-gradient(circle at 96% 100%,rgba(124,55,65,.38),transparent 31%),
+    radial-gradient(circle at 5% 0%,rgba(229,189,130,.12),transparent 29%),
+    #302622;
+  color:#FFF5E4;
+  box-shadow:0 18px 44px rgba(48,38,34,.16);
+}
+.quote-day-decor {
+  position:absolute;
+  z-index:-1;
+  color:#8D4A53;
+  font:700 112px/.7 Georgia,serif;
+  opacity:.88;
+  user-select:none;
+  pointer-events:none;
+}
+.quote-day-decor-open { top:30px; left:24px; }
+.quote-day-decor-close { right:17px; bottom:-7px; transform:rotate(180deg); }
+.quote-day-top { position:relative; z-index:1; min-height:42px; padding-left:54px; justify-content:flex-start; }
+.quote-day-eyebrow { color:#E5BD82; font-size:10px; letter-spacing:.16em; }
+.quote-of-day-card blockquote {
+  position:relative;
+  z-index:1;
+  flex:1;
+  margin:21px 0 25px;
+  color:#FFF5E4;
+  font:700 clamp(25px,2.05vw,35px)/1.08 "Cormorant Garamond",Georgia,serif;
+  letter-spacing:-.018em;
+}
+.quote-day-source { position:relative; z-index:1; border-color:rgba(229,189,130,.3); }
+.quote-day-source strong { color:#FFF5E4; font:700 15px "Cormorant Garamond",Georgia,serif; }
+.quote-day-source span { color:#CBB79B; }
+.quote-day-actions { position:relative; z-index:1; }
+.quote-day-button {
+  border-color:#755A4D;
+  background:#3B2E29;
+  color:#E7C99C;
+}
+.quote-day-button:hover { border-color:#A6626A; background:#71343C; color:#FFF9EF; }
+.quote-day-empty { position:relative; z-index:1; padding-top:42px; }
+.quote-day-empty h2 { color:#FFF5E4; font-size:31px; }
+.quote-day-empty p { color:#CBB79B; }
+body.dark .quote-of-day-card {
+  border-color:#8E6752;
+  background:radial-gradient(circle at 96% 100%,rgba(124,55,65,.38),transparent 31%),radial-gradient(circle at 5% 0%,rgba(229,189,130,.12),transparent 29%),#302622;
+}
+body.dark .quote-of-day-card blockquote,body.dark .quote-day-empty h2,body.dark .quote-day-source strong { color:#FFF5E4; }
+
+@media (max-width:900px) {
+  .library-hero-carousel { margin-top:20px; }
+}
+
+@media (max-width:700px) {
+  .library-pagination { margin-top:21px; }
+  .library-pagination button { min-width:35px; height:35px; padding:0 8px; }
+  .library-feature-row .library-hero-copy { padding-bottom:32px; }
+  .library-hero-eyebrow > span { display:none; }
+  .library-hero-carousel { width:230px; }
+  .quote-of-day-card { min-height:360px; padding:31px 24px 25px; }
+  .quote-day-top { padding-left:47px; }
+  .quote-of-day-card blockquote { font-size:30px; }
+  .book-collection-dropdown .book-collection-choices { max-height:170px; }
+  .library-view[data-grid-columns="6"] .book-meta { opacity:1; transform:none; pointer-events:auto; }
+}
