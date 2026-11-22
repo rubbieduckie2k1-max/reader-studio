@@ -55,6 +55,7 @@
     globalNotebookItems: [],
     favoriteQuotes: [],
     quotePreviewOffset: 0,
+    quoteExpanded: false,
     collections: [],
     series: [],
     pinnedBookIds: [],
@@ -77,6 +78,7 @@
     notebookRanges: new WeakMap(),
     progressSaveTimer: null,
     readerLayoutTimer: null,
+    epubTypographyTimer: null,
     readerResizeObserver: null,
     librarySidebarCollapsed: localStorage.getItem('reader-library-sidebar-collapsed') === '1',
     libraryCollectionsCollapsed: localStorage.getItem('reader-library-collections-collapsed') === '1',
@@ -872,7 +874,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.7', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.8', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1493,13 +1495,21 @@
     const index = ((day + state.quotePreviewOffset) % quotes.length + quotes.length) % quotes.length;
     const quote = quotes[index];
     const book = state.books.find(item => item.id === quote.bookId);
-    els.quoteOfDay.innerHTML = `<span class="quote-day-decor quote-day-decor-open" aria-hidden="true">“</span><span class="quote-day-decor quote-day-decor-close" aria-hidden="true">“</span><div class="quote-day-top"><div class="quote-day-eyebrow">★ &nbsp; QUOTE OF THE DAY</div></div>
-      <blockquote>${escapeHTML(quote.text)}</blockquote>
+    const quoteText = String(quote.text || '').trim();
+    const canCollapse = quoteText.length > 240;
+    const expanded = !canCollapse || state.quoteExpanded;
+    els.quoteOfDay.innerHTML = `<span class="quote-day-decor quote-day-decor-open" aria-hidden="true">“</span><span class="quote-day-decor quote-day-decor-close" aria-hidden="true">“</span><div class="quote-day-top"><div class="quote-day-eyebrow">★ &nbsp; QUOTE OF THE DAY</div>${canCollapse ? `<button type="button" class="quote-day-collapse" data-quote-toggle aria-expanded="${expanded}">${expanded ? 'Thu gọn' : 'Xem đầy đủ'}</button>` : ''}</div>
+      <blockquote class="${canCollapse ? (expanded ? 'is-expanded' : 'is-collapsed') : ''}">${escapeHTML(quoteText)}</blockquote>
       <div class="quote-day-source"><strong>${escapeHTML(book?.title || 'Sách đã xóa')}</strong><span>${escapeHTML(book?.author || 'Không rõ tác giả')}</span></div>
       <div class="quote-day-actions"><button class="quote-day-button" data-quote-next>↻ Quote khác</button>${book ? `<button class="quote-day-button" data-quote-open="${escapeHTML(book.id)}">Mở sách →</button>` : ''}</div>`;
     els.quoteOfDay.classList.remove('hidden');
+    $('[data-quote-toggle]', els.quoteOfDay)?.addEventListener('click', () => {
+      state.quoteExpanded = !state.quoteExpanded;
+      renderQuoteOfDay();
+    });
     $('[data-quote-next]', els.quoteOfDay)?.addEventListener('click', () => {
       state.quotePreviewOffset += 1;
+      state.quoteExpanded = false;
       renderQuoteOfDay();
     });
     $('[data-quote-open]', els.quoteOfDay)?.addEventListener('click', () => openBook(book.id));
@@ -1657,11 +1667,11 @@
     const active = state.books.filter(book => completionCount(book) === 0);
     const statusPageSize = 8;
     const filtered = state.books.filter(book => {
-      const progress = Number(book.progress || 0);
+      const progress = clamp(Math.round(Number(book.progress || 0)), 0, 100);
       const completedTimes = completionCount(book);
       if (state.statusFilter === 'completed') return completedTimes > 0;
-      if (state.statusFilter === 'reading') return progress > 0 && progress < 99.5;
-      if (state.statusFilter === 'unread') return completedTimes === 0 && progress <= 0;
+      if (state.statusFilter === 'reading') return progress >= 1 && progress <= 99;
+      if (state.statusFilter === 'unread') return completedTimes === 0 && progress === 0;
       return true;
     });
     const totalPages = Math.max(1, Math.ceil(filtered.length / statusPageSize));
@@ -2217,6 +2227,8 @@
 
   async function closeReader() {
     hideSelectionTools();
+    clearTimeout(state.epubTypographyTimer);
+    state.renderToken += 1;
     await saveNotebook();
     await saveCurrentProgress(true);
     if (state.pdfDoc) {
@@ -2298,15 +2310,21 @@
     if (!state.pdfDoc || state.currentBook?.type !== 'pdf') return;
     state.currentPage = normalizePDFSpreadStart(state.currentPage);
     const token = ++state.renderToken;
-    els.pdfPages.innerHTML = '';
+    const oldScrollable = Math.max(1, els.pdfReader.scrollHeight - els.pdfReader.clientHeight);
+    const scrollRatio = clamp(els.pdfReader.scrollTop / oldScrollable, 0, 1);
     const pages = [state.currentPage];
     if (state.spread && state.currentPage < state.pdfDoc.numPages) pages.push(state.currentPage + 1);
+    const nodes = [];
     for (const pageNum of pages) {
       if (token !== state.renderToken) return;
       const node = await renderPDFPage(pageNum);
       if (token !== state.renderToken) return;
-      els.pdfPages.appendChild(node);
+      nodes.push(node);
     }
+    if (token !== state.renderToken) return;
+    els.pdfPages.replaceChildren(...nodes);
+    const newScrollable = Math.max(0, els.pdfReader.scrollHeight - els.pdfReader.clientHeight);
+    els.pdfReader.scrollTop = scrollRatio * newScrollable;
     updatePDFProgress();
     updateBookmarkButton();
   }
@@ -2326,6 +2344,7 @@
     pageEl.dataset.page = String(pageNum);
     pageEl.style.width = `${viewport.width}px`;
     pageEl.style.height = `${viewport.height}px`;
+    pageEl.style.setProperty('--scale-factor', String(scale));
 
     const canvas = document.createElement('canvas');
     canvas.width = Math.floor(viewport.width * outputScale);
@@ -2383,14 +2402,20 @@
     const startEl = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
     const pageEl = startEl?.closest?.('.pdf-page');
     if (!pageEl) return;
-    const pageRect = pageEl.getBoundingClientRect();
+    const annotationLayer = pageEl.querySelector('.annotation-layer');
+    const pageRect = (annotationLayer || pageEl).getBoundingClientRect();
+    if (!pageRect.width || !pageRect.height) return;
     const rects = [...range.getClientRects()].map(r => ({
       x: (r.left - pageRect.left) / pageRect.width,
       y: (r.top - pageRect.top) / pageRect.height,
       w: r.width / pageRect.width,
       h: r.height / pageRect.height
     })).filter(r => r.w > .001 && r.h > .001 && r.x < 1 && r.y < 1 && r.x + r.w > 0 && r.y + r.h > 0)
-      .map(r => ({ x: clamp(r.x,0,1), y: clamp(r.y,0,1), w: clamp(r.w,0,1), h: clamp(r.h,0,1) }));
+      .map(r => {
+        const x = clamp(r.x, 0, 1);
+        const y = clamp(r.y, 0, 1);
+        return { x, y, w: clamp(r.w, 0, 1 - x), h: clamp(r.h, 0, 1 - y) };
+      });
     if (!rects.length) return;
     state.selection = { format:'pdf', text, location:{ page:Number(pageEl.dataset.page), rects } };
     positionSelectionToolbar(range.getBoundingClientRect());
@@ -2648,9 +2673,29 @@
     }));
   }
 
-  function replayEPUBAnnotations() {
+  function replayEPUBAnnotations(reset = false) {
     if (!state.rendition) return;
-    for (const ann of state.annotations.filter(a => a.format === 'epub')) applyEPUBAnnotation(ann);
+    const annotations = state.annotations.filter(a => a.format === 'epub');
+    if (reset) annotations.forEach(removeEPUBAnnotation);
+    for (const ann of annotations) applyEPUBAnnotation(ann);
+  }
+
+  function scheduleEPUBTypographyRefresh(delay = 90) {
+    clearTimeout(state.epubTypographyTimer);
+    const bookId = state.currentBook?.id;
+    state.epubTypographyTimer = setTimeout(async () => {
+      if (!state.rendition || state.currentBook?.id !== bookId || state.currentBook?.type !== 'epub') return;
+      const anchor = state.rendition.currentLocation()?.start?.cfi;
+      hideSelectionTools(true);
+      try {
+        const width = Math.floor(els.epubArea.clientWidth);
+        const height = Math.floor(els.epubArea.clientHeight);
+        if (width > 0 && height > 0) state.rendition.resize(width, height);
+        if (anchor) await state.rendition.display(anchor);
+        await sleep(30);
+        replayEPUBAnnotations(true);
+      } catch (_) {}
+    }, delay);
   }
 
   function applyEPUBAnnotation(ann) {
@@ -2763,6 +2808,7 @@
 
   function zoomBy(delta) {
     if (!state.currentBook) return;
+    hideSelectionTools(true);
     if (state.currentBook.type === 'pdf') {
       state.pdfZoom = clamp(state.pdfZoom + delta, .5, 2.5);
       updateZoomIndicators();
@@ -2772,12 +2818,14 @@
       updateZoomIndicators();
       state.currentBook.epubFontSize = state.epubFontSize;
       applyEpubTheme();
+      scheduleEPUBTypographyRefresh();
       saveCurrentProgress();
     }
   }
 
   function fitWidth() {
     if (!state.currentBook) return;
+    hideSelectionTools(true);
     if (state.currentBook.type === 'pdf') {
       state.pdfZoom = 1;
       updateZoomIndicators(true);
@@ -2786,6 +2834,7 @@
       state.epubFontSize = 100;
       updateZoomIndicators();
       applyEpubTheme();
+      scheduleEPUBTypographyRefresh();
     }
   }
 
@@ -3031,6 +3080,8 @@
       try {
         state.rendition.resize(width, height);
         if (anchor) await state.rendition.display(anchor);
+        await sleep(30);
+        replayEPUBAnnotations(true);
       } catch (_) {}
     }, delay);
   }

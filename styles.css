@@ -2166,3 +2166,53 @@ body.dark .status-filter select { background:#FFF9EF; color:#302622; }
   .status-progress { width:47px; height:47px; font-size:14px; }
   .status-state { grid-column:2; justify-self:start; margin-top:1px; }
 }
+
+/* Reader Studio 1.9.8 — stable annotation reflow, collapsible daily quote */
+.quote-day-top {
+  justify-content:space-between!important;
+}
+.quote-day-collapse {
+  position:relative;
+  z-index:2;
+  flex:0 0 auto;
+  min-height:30px;
+  padding:0 10px;
+  border:1px solid #755A4D;
+  border-radius:999px;
+  background:#3B2E29;
+  color:#E7C99C;
+  font-size:9px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.quote-day-collapse:hover,
+.quote-day-collapse:focus-visible {
+  border-color:#A6626A;
+  background:#71343C;
+  color:#FFF9EF;
+  outline:0;
+}
+.quote-of-day-card blockquote.is-collapsed {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:6;
+  max-height:6.55em;
+  overflow:hidden;
+}
+.quote-of-day-card blockquote.is-expanded {
+  flex:none;
+}
+.quote-day-source { margin-top:auto; }
+.pdf-page .annotation-layer {
+  width:100%;
+  height:100%;
+  contain:layout paint;
+}
+
+@media (max-width:700px) {
+  .quote-day-collapse { min-height:28px; padding:0 9px; font-size:8px; }
+  .quote-of-day-card blockquote.is-collapsed {
+    -webkit-line-clamp:5;
+    max-height:5.45em;
+  }
+}
