@@ -1,8 +1,8 @@
-# Reader Studio 1.9.8
+# Reader Studio 1.9.9
 
 Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
 
-Phiên bản 1.9.8 giữ ổn định highlight khi đổi kích thước trang hoặc cỡ chữ, thêm chế độ thu gọn cho Quote of the Day dài và sửa bộ lọc Đang đọc để không lấy sách hiển thị 0%. Dashboard Status và carousel hai sách ghim tiếp tục hoạt động đầy đủ trên desktop lẫn mobile.
+Phiên bản 1.9.9 bổ sung chế độ thu gọn riêng cho từng thẻ trong tab Quote yêu thích. Quote dài mặc định hiển thị gọn, có thể mở đầy đủ hoặc thu lại mà vẫn giữ các nút Mở sách và Bỏ ★ luôn nhìn thấy trên desktop lẫn mobile. Các sửa lỗi highlight, Status và Quote of the Day của 1.9.8 được giữ nguyên.
 
 ## Cách chạy trên Windows
 
@@ -60,7 +60,7 @@ window.READER_STUDIO_CONFIG = {
 
 Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
 
-1. Chép các file của bản 1.9.8 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
+1. Chép các file của bản 1.9.9 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
 2. Chạy `start.bat` và mở `http://localhost:4173`.
 3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
 4. Bấm **Đồng bộ dữ liệu hiện có**.
@@ -70,7 +70,7 @@ Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc c
 
 ### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.8 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
+1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.9 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
 2. Commit và chờ GitHub Pages cập nhật.
 3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
 4. Đăng nhập bằng đúng email cá nhân ở bước 4.

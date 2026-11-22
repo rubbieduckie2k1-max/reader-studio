@@ -54,6 +54,7 @@
     globalNotebookLoaded: false,
     globalNotebookItems: [],
     favoriteQuotes: [],
+    expandedFavoriteQuoteIds: new Set(),
     quotePreviewOffset: 0,
     quoteExpanded: false,
     collections: [],
@@ -874,7 +875,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.8', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=1.9.9', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1973,8 +1974,18 @@
     }
     els.favoriteQuoteList.innerHTML = state.favoriteQuotes.map(quote => {
       const book = state.books.find(item => item.id === quote.bookId);
-      return `<article class="favorite-quote-card" data-favorite-quote-id="${escapeHTML(quote.id)}"><blockquote>${escapeHTML(quote.text)}</blockquote><div class="favorite-quote-source"><div><strong>${escapeHTML(book?.title || 'Sách đã xóa')}</strong><span>${escapeHTML(book?.author || 'Không rõ tác giả')}</span></div><div><button data-favorite-open="${escapeHTML(quote.id)}">Mở sách</button><button data-favorite-remove="${escapeHTML(quote.id)}">Bỏ ★</button></div></div></article>`;
+      const quoteText = String(quote.text || '').trim();
+      const canCollapse = quoteText.length > 240;
+      const expanded = state.expandedFavoriteQuoteIds.has(quote.id);
+      return `<article class="favorite-quote-card" data-favorite-quote-id="${escapeHTML(quote.id)}"><blockquote class="${canCollapse && !expanded ? 'is-collapsed' : ''}">${escapeHTML(quoteText)}</blockquote><div class="favorite-quote-source"><div><strong>${escapeHTML(book?.title || 'Sách đã xóa')}</strong><span>${escapeHTML(book?.author || 'Không rõ tác giả')}</span></div><div>${canCollapse ? `<button data-favorite-toggle="${escapeHTML(quote.id)}" aria-expanded="${expanded}">${expanded ? 'Thu gọn' : 'Xem đầy đủ'}</button>` : ''}<button data-favorite-open="${escapeHTML(quote.id)}">Mở sách</button><button data-favorite-remove="${escapeHTML(quote.id)}">Bỏ ★</button></div></div></article>`;
     }).join('');
+    $$('[data-favorite-toggle]', els.favoriteQuoteList).forEach(button => button.addEventListener('click', () => {
+      const quoteId = button.dataset.favoriteToggle;
+      if (state.expandedFavoriteQuoteIds.has(quoteId)) state.expandedFavoriteQuoteIds.delete(quoteId);
+      else state.expandedFavoriteQuoteIds.add(quoteId);
+      renderQuotePanel();
+      requestAnimationFrame(() => els.favoriteQuoteList.querySelector(`[data-favorite-quote-id="${CSS.escape(quoteId)}"]`)?.scrollIntoView({ block:'nearest' }));
+    }));
     $$('[data-favorite-open]', els.favoriteQuoteList).forEach(button => button.addEventListener('click', async () => {
       const quote = state.favoriteQuotes.find(item => item.id === button.dataset.favoriteOpen);
       if (!quote) return;
