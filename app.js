@@ -1358,7 +1358,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=2.0.2', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=2.0.3', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1596,10 +1596,26 @@
 
     bindNotebookEditor(els.bookNotebookToolbar, els.notebookEditor, scheduleNotebookSave);
     bindNotebookEditor(els.globalNotebookToolbar, els.globalNotebookEditor, scheduleGlobalNotebookSave);
+    els.globalNotebookEditor?.addEventListener('input', event => {
+      updateNotebookEntryCollapsibility(event.target.closest('.notebook-entry'), false);
+    });
     els.globalNotebookEditor?.addEventListener('mousedown', event => {
-      if (event.target.closest('[data-delete-notebook-entry]')) event.preventDefault();
+      if (event.target.closest('[data-delete-notebook-entry], [data-toggle-notebook-entry]')) event.preventDefault();
     });
     els.globalNotebookEditor?.addEventListener('click', async event => {
+      const toggleButton = event.target.closest('[data-toggle-notebook-entry]');
+      if (toggleButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const entry = toggleButton.closest('.notebook-entry');
+        if (!entry) return;
+        const collapsed = entry.classList.toggle('is-collapsed');
+        toggleButton.textContent = collapsed ? 'Mở rộng' : 'Thu gọn';
+        toggleButton.setAttribute('aria-expanded', String(!collapsed));
+        toggleButton.title = collapsed ? 'Mở rộng note' : 'Thu gọn note';
+        toggleButton.setAttribute('aria-label', toggleButton.title);
+        return;
+      }
       const button = event.target.closest('[data-delete-notebook-entry]');
       if (!button) return;
       event.preventDefault();
@@ -2195,7 +2211,7 @@
         ? `Đã hoàn thành ${completedTimes} lần`
         : progress > 0 ? 'Đang đọc' : 'Chưa đọc';
       return `<article class="status-book-row" data-status-open="${escapeHTML(book.id)}" tabindex="0">
-        <strong class="status-progress">${progress}%</strong>
+        <strong class="status-progress ${statusClass}">${progress}%</strong>
         <div class="status-book-copy"><strong>${escapeHTML(book.title)}</strong><span>${escapeHTML(book.author || 'Không rõ tác giả')}</span></div>
         <span class="status-state ${statusClass}">${statusText}</span>
       </article>`;
@@ -2568,14 +2584,41 @@
     if (!els.globalNotebookEditor) return;
     $$('.notebook-entry', els.globalNotebookEditor).forEach(entry => {
       if (!entry.dataset.noteId) entry.dataset.noteId = uid();
-      if (entry.querySelector('[data-delete-notebook-entry]')) return;
-      entry.insertAdjacentHTML('afterbegin', `<button type="button" class="notebook-entry-delete" data-delete-notebook-entry contenteditable="false" title="Xóa note" aria-label="Xóa note">×</button>`);
+      if (!entry.querySelector('.notebook-entry-actions')) {
+        entry.insertAdjacentHTML('afterbegin', `<div class="notebook-entry-actions" contenteditable="false"><button type="button" class="notebook-entry-toggle" data-toggle-notebook-entry title="Thu gọn note" aria-label="Thu gọn note" aria-expanded="true">Thu gọn</button><button type="button" class="notebook-entry-delete" data-delete-notebook-entry title="Xóa note" aria-label="Xóa note">×</button></div>`);
+      }
+      updateNotebookEntryCollapsibility(entry, true);
     });
+  }
+
+  function updateNotebookEntryCollapsibility(entry, collapseWhenFirstDetected = false) {
+    if (!entry) return;
+    const toggleButton = entry.querySelector('[data-toggle-notebook-entry]');
+    if (!toggleButton) return;
+    const contentText = Array.from(entry.childNodes)
+      .filter(node => !(node.nodeType === Node.ELEMENT_NODE && node.classList?.contains('notebook-entry-actions')))
+      .map(node => node.textContent || '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const contentBlocks = entry.querySelectorAll('p, li, blockquote, h3, h4, hr').length;
+    const canCollapse = contentText.length > 360 || contentBlocks > 5;
+    const wasCollapsible = entry.classList.contains('can-collapse');
+    entry.classList.toggle('can-collapse', canCollapse);
+    toggleButton.classList.toggle('hidden', !canCollapse);
+    if (!canCollapse) entry.classList.remove('is-collapsed');
+    else if (collapseWhenFirstDetected && !wasCollapsible) entry.classList.add('is-collapsed');
+    const collapsed = entry.classList.contains('is-collapsed');
+    toggleButton.textContent = collapsed ? 'Mở rộng' : 'Thu gọn';
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+    toggleButton.title = collapsed ? 'Mở rộng note' : 'Thu gọn note';
+    toggleButton.setAttribute('aria-label', toggleButton.title);
   }
 
   function globalNotebookHTMLForSave() {
     const clone = els.globalNotebookEditor.cloneNode(true);
-    $$('[data-delete-notebook-entry]', clone).forEach(button => button.remove());
+    $$('.notebook-entry-actions', clone).forEach(actions => actions.remove());
+    $$('.notebook-entry', clone).forEach(entry => entry.classList.remove('can-collapse', 'is-collapsed'));
     return clone.innerHTML;
   }
 

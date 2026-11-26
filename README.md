@@ -1,4 +1,10 @@
-# Reader Studio 2.0.2 — Google Drive Edition
+# Reader Studio 2.0.3 — Google Drive Edition
+
+## Cập nhật 2.0.3
+
+- Note dài trong Ghi chú chung và notebook theo sách tự thu gọn, có nút **Mở rộng / Thu gọn** riêng trên desktop và điện thoại.
+- Nút thu gọn và nút × là điều khiển giao diện, không được ghi lẫn vào nội dung note khi đồng bộ.
+- Ô phần trăm trong Status sách dùng màu theo trạng thái: xanh lá cho đã hoàn thành, nâu cho đang đọc và vàng nhạt cho chưa đọc.
 
 ## Cập nhật 2.0.2
 

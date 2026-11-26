@@ -2017,10 +2017,13 @@ body.dark .quote-of-day-card blockquote,body.dark .quote-day-empty h2,body.dark 
   display:grid;
   place-items:center;
   border-radius:15px;
-  background:#843945;
+  background:#7A4937;
   color:#FFF9EF;
   font:700 19px/1 "Be Vietnam Pro",sans-serif;
 }
+.status-progress.reading { background:#7A4937; color:#FFF9EF; }
+.status-progress.unread { background:#F1DFAE; color:#5E4823; }
+.status-progress.completed { background:#3F7D5D; color:#FFF9EF; }
 .library-status-panel .status-book-copy { min-width:0; display:block; }
 .library-status-panel .status-book-copy strong {
   display:block;
@@ -2049,8 +2052,8 @@ body.dark .quote-of-day-card blockquote,body.dark .quote-day-empty h2,body.dark 
   text-align:center;
   white-space:nowrap;
 }
-.status-state.reading { color:#7B3540; background:#F2DDE0; }
-.status-state.unread { color:#76574E; background:#EEE0D1; }
+.status-state.reading { color:#6D4333; background:#E8D4C5; }
+.status-state.unread { color:#6F5621; background:#F4E7BE; }
 .status-state.completed { color:#24694D; background:#DDEFE5; }
 .library-status-panel .status-empty {
   grid-column:1/-1;
@@ -2247,23 +2250,45 @@ body.dark .status-filter select { background:#FFF9EF; color:#302622; }
   .favorite-quote-source > div:last-child { justify-content:flex-start; }
 }
 
-/* Reader Studio 2.0.2 — notebook deletion, quote pages and mobile notebook */
+/* Reader Studio 2.0.3 — notebook controls, quote pages and mobile notebook */
 .quote-pagination { margin-top:24px; }
-.notebook-entry { position:relative; padding-right:44px; }
+.notebook-entry { position:relative; }
+.notebook-entry-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  margin:0 0 8px;
+}
+.notebook-entry-toggle,
 .notebook-entry-delete {
-  position:absolute;
-  top:0;
-  right:0;
-  width:32px;
   height:32px;
-  display:grid;
-  place-items:center;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   border:1px solid var(--line);
   border-radius:9px;
   background:var(--surface-2);
   color:var(--muted);
-  font:700 18px/1 Arial,sans-serif;
   cursor:pointer;
+}
+.notebook-entry-toggle {
+  min-width:76px;
+  padding:0 10px;
+  color:var(--accent);
+  font-size:10px;
+  font-weight:800;
+}
+.notebook-entry-delete {
+  width:32px;
+  font:700 18px/1 Arial,sans-serif;
+}
+.notebook-entry-toggle:hover,
+.notebook-entry-toggle:focus-visible {
+  border-color:color-mix(in srgb,var(--accent) 48%,var(--line));
+  background:color-mix(in srgb,var(--accent) 9%,var(--surface));
+  color:var(--accent);
+  outline:0;
 }
 .notebook-entry-delete:hover,
 .notebook-entry-delete:focus-visible {
@@ -2271,6 +2296,25 @@ body.dark .status-filter select { background:#FFF9EF; color:#302622; }
   background:color-mix(in srgb,var(--danger) 10%,var(--surface));
   color:var(--danger);
   outline:0;
+}
+.notebook-entry.can-collapse.is-collapsed {
+  max-height:260px;
+  overflow:hidden;
+}
+.notebook-entry.can-collapse.is-collapsed::after {
+  content:"";
+  position:absolute;
+  z-index:1;
+  left:0;
+  right:0;
+  bottom:0;
+  height:68px;
+  pointer-events:none;
+  background:linear-gradient(to bottom,transparent,var(--surface) 84%);
+}
+.notebook-entry.can-collapse .notebook-entry-actions {
+  position:relative;
+  z-index:2;
 }
 
 @media (max-width:780px) {
@@ -2358,10 +2402,12 @@ body.dark .status-filter select { background:#FFF9EF; color:#302622; }
   }
   .notebook-entry {
     margin-bottom:22px;
-    padding-right:42px;
     padding-bottom:20px;
   }
   .notebook-entry > h2 { padding-right:2px; font-size:20px; line-height:1.25; }
-  .notebook-entry-delete { width:34px; height:34px; }
+  .notebook-entry-actions { margin-bottom:10px; }
+  .notebook-entry-toggle { min-width:82px; height:36px; font-size:11px; }
+  .notebook-entry-delete { width:36px; height:36px; }
+  .notebook-entry.can-collapse.is-collapsed { max-height:320px; }
   .quote-pagination { margin-top:18px; }
 }
