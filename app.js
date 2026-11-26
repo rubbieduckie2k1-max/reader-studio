@@ -1004,20 +1004,36 @@
     if (!state.googleCoversFolderId) state.googleCoversFolderId = (await driveCreate({ name:'Covers', mimeType:'application/vnd.google-apps.folder', parents:[state.googleRootFolderId], appProperties:{ readerStudioType:'covers' } })).id;
     state.googleSheetId = cached.sheet || (await driveFind('database'))?.id || null;
     if (!state.googleSheetId) await createGoogleDatabase();
+    else await ensureGoogleDatabaseSchema();
     localStorage.setItem(resourceCacheKey(), JSON.stringify({ root:state.googleRootFolderId, books:state.googleBooksFolderId, covers:state.googleCoversFolderId, sheet:state.googleSheetId }));
     state.googleRevision = localStorage.getItem(`${resourceCacheKey()}:revision`) || '0';
   }
 
   async function createGoogleDatabase() {
     state.googleSheetId = (await driveCreate({ name:'Reader Studio Database', mimeType:'application/vnd.google-apps.spreadsheet', parents:[state.googleRootFolderId], appProperties:{ readerStudioType:'database', schema:'2' } })).id;
+    await ensureGoogleDatabaseSchema();
+  }
+
+  async function ensureGoogleDatabaseSchema() {
     const spreadsheet = await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}?fields=sheets.properties`);
-    const firstSheetId = spreadsheet.sheets?.[0]?.properties?.sheetId;
-    await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}:batchUpdate`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ requests:[
-      { updateSheetProperties:{ properties:{ sheetId:firstSheetId, title:'META' }, fields:'title' } },
-      { addSheet:{ properties:{ title:'RECORDS', frozenRowCount:1 } } }
-    ] }) });
-    await sheetWrite('META!A1', [['key','value'],['revision','0'],['schema_version','2'],['created_at',String(Date.now())],['root_folder_id',state.googleRootFolderId]]);
-    await sheetWrite('RECORDS!A1', [['store','item_id','book_id','updated_at','deleted','drive_file_id','cover_file_id','mime_type', ...Array.from({ length:GOOGLE_DATA_CHUNKS }, (_, i) => `data_${i + 1}`)]]);
+    const sheets = spreadsheet.sheets || [];
+    const titles = new Set(sheets.map(sheet => sheet.properties?.title));
+    const requests = [];
+    if (!titles.has('META')) {
+      const reusable = sheets.find(sheet => !['META','RECORDS'].includes(sheet.properties?.title));
+      if (reusable) requests.push({ updateSheetProperties:{ properties:{ sheetId:reusable.properties.sheetId, title:'META' }, fields:'title' } });
+      else requests.push({ addSheet:{ properties:{ title:'META' } } });
+    }
+    if (!titles.has('RECORDS')) {
+      requests.push({ addSheet:{ properties:{ title:'RECORDS', gridProperties:{ frozenRowCount:1 } } } });
+    }
+    if (requests.length) {
+      await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}:batchUpdate`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ requests }) });
+    }
+    const metaRows = await sheetRead('META!A1:B5').catch(() => []);
+    if (!metaRows.length) await sheetWrite('META!A1', [['key','value'],['revision','0'],['schema_version','2'],['created_at',String(Date.now())],['root_folder_id',state.googleRootFolderId]]);
+    const recordHeader = await sheetRead('RECORDS!A1:AB1').catch(() => []);
+    if (!recordHeader.length) await sheetWrite('RECORDS!A1', [['store','item_id','book_id','updated_at','deleted','drive_file_id','cover_file_id','mime_type', ...Array.from({ length:GOOGLE_DATA_CHUNKS }, (_, i) => `data_${i + 1}`)]]);
   }
 
   async function sheetRead(range) {
@@ -1339,7 +1355,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=2.0.0', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=2.0.1', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }

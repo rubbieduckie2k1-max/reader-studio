@@ -1,4 +1,4 @@
-# Reader Studio 2.0 — Google Drive Edition
+# Reader Studio 2.0.1 — Google Drive Edition
 
 Reader Studio là web đọc PDF/EPUB theo hướng local-first. Bản 2.0 thay Supabase bằng Google Drive + Google Sheets để tránh giới hạn egress của dịch vụ cũ:
 
