@@ -329,6 +329,10 @@ body.dark .annotation-card:hover { filter:brightness(1.08); }
 .auth-panel input { width:100%; height:43px; padding:0 12px; border:1px solid var(--line); border-radius:11px; outline:0; background:var(--surface-2); color:var(--text); }
 .auth-panel input:focus { border-color:color-mix(in srgb, var(--accent) 55%, var(--line)); box-shadow:0 0 0 3px var(--accent-soft); }
 .auth-message { min-height:18px; color:var(--danger); font-size:11px; line-height:1.45; }
+.google-connect-btn { width:100%; min-height:48px; }
+.google-storage-map { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; align-items:center; padding:14px; border:1px solid var(--line); border-radius:13px; background:var(--surface-2); font-size:11px; }
+.google-storage-map span { color:var(--muted); }
+.google-storage-map b { color:var(--accent); text-align:right; }
 .auth-actions { margin-top:0; }
 .auth-link-btn { justify-self:end; margin-top:-6px; padding:3px 0; color:var(--accent); font-size:11px; font-weight:750; }
 .auth-link-btn:hover { text-decoration:underline; }
@@ -2217,7 +2221,7 @@ body.dark .status-filter select { background:#FFF9EF; color:#302622; }
   }
 }
 
-/* Reader Studio 1.9.9 — collapsible cards in Favorite Quotes */
+/* Reader Studio 2.0 — collapsible cards in Favorite Quotes */
 .favorite-quote-card blockquote.is-collapsed {
   display:-webkit-box;
   -webkit-box-orient:vertical;

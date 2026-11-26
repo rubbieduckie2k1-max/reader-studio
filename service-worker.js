@@ -1,5 +1,5 @@
-const CACHE = 'reader-studio-v43';
-const LOCAL = ['./','./index.html','./styles.css?v=1.9.9','./app.js?v=1.9.9','./config.js?v=1.9.9','./vendor/jszip.min.js','./manifest.webmanifest?v=1.9.9'];
+const CACHE = 'reader-studio-v44-google';
+const LOCAL = ['./','./index.html','./styles.css?v=2.0.0','./app.js?v=2.0.0','./vendor/jszip.min.js','./manifest.webmanifest?v=2.0.0'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(c => c.addAll(LOCAL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(
   caches.keys()
@@ -9,7 +9,7 @@ self.addEventListener('activate', event => event.waitUntil(
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  // Never cache Supabase, translation services, CDN responses, or any other
+  // Never cache Google APIs, translation services, CDN responses, or any other
   // cross-origin request. Cloud data must always reflect the latest version.
   if (url.origin !== self.location.origin) return;
   const freshFiles = ['/index.html', '/app.js', '/styles.css', '/config.js'];

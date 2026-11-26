@@ -1,154 +1,129 @@
-# Reader Studio 1.9.9
+# Reader Studio 2.0 — Google Drive Edition
 
-Web đọc sách local-first dành cho PDF và EPUB, có thể đồng bộ riêng tư giữa máy tính và điện thoại bằng Supabase.
+Reader Studio là web đọc PDF/EPUB theo hướng local-first. Bản 2.0 thay Supabase bằng Google Drive + Google Sheets để tránh giới hạn egress của dịch vụ cũ:
 
-Phiên bản 1.9.9 bổ sung chế độ thu gọn riêng cho từng thẻ trong tab Quote yêu thích. Quote dài mặc định hiển thị gọn, có thể mở đầy đủ hoặc thu lại mà vẫn giữ các nút Mở sách và Bỏ ★ luôn nhìn thấy trên desktop lẫn mobile. Các sửa lỗi highlight, Status và Quote of the Day của 1.9.8 được giữ nguyên.
+- **Google Drive** lưu PDF, EPUB và ảnh bìa.
+- **Google Sheets** lưu danh mục sách, tiến độ, highlight, note, bookmark, notebook và thiết lập thư viện.
+- **IndexedDB trên từng thiết bị** giữ bản cache để mở nhanh và tiếp tục đọc khi ngoại tuyến.
+- File sách chỉ tải về thiết bị mới khi bạn mở lần đầu; sau đó bản local được dùng lại.
 
-## Cách chạy trên Windows
+Ứng dụng chỉ truy cập thư mục và spreadsheet do chính Reader Studio tạo trong Drive. Không cần database server, Apps Script hay API key bí mật.
+
+## 1. Chạy local
 
 1. Giải nén thư mục.
-2. Double-click `start.bat`.
-3. Trình duyệt sẽ mở `http://localhost:4173`.
-4. Bấm **Thêm sách** và chọn PDF/EPUB.
+2. Double-click `start.bat` trên Windows, hoặc chạy `./start.sh` trên macOS/Linux.
+3. Mở `http://localhost:4173`.
 
-Không cần cài Python hay phần mềm bổ sung. Reader Studio dùng PowerShell có sẵn trên Windows để chạy. Hãy giữ cửa sổ `Reader Studio` mở trong lúc đọc sách; nhấn `Ctrl+C` hoặc đóng cửa sổ đó để dừng.
+Bạn có thể dùng toàn bộ chức năng local mà chưa cần cấu hình Google.
 
-## Thiết lập đồng bộ máy tính ↔ điện thoại
+## 2. Tạo Google OAuth Client ID
 
-Không cần kết nối Supabase cá nhân với tài khoản ChatGPT. Bạn chỉ thao tác trong tài khoản Supabase và GitHub cá nhân của mình.
+Thao tác một lần trong [Google Cloud Console](https://console.cloud.google.com/):
 
-### Bước 1 — Tạo database và vùng lưu sách
+1. Tạo hoặc chọn một project.
+2. Vào **APIs & Services → Library**, bật Google Drive API và Google Sheets API.
+3. Vào **Google Auth Platform → Branding** và tạo màn hình đồng ý OAuth.
+4. Nếu ứng dụng đang ở chế độ Testing, thêm email Google của bạn vào **Test users**.
+5. Vào **Clients → Create client → Web application**.
+6. Thêm các **Authorized JavaScript origins**:
+   - `http://localhost:4173`
+   - origin GitHub Pages, ví dụ `https://rubbieduckie2k1-max.github.io`
+7. Không cần thêm redirect URI cho kiểu token popup này.
+8. Copy Client ID có đuôi `.apps.googleusercontent.com`.
 
-1. Mở project Supabase cá nhân.
-2. Vào **SQL Editor** → **New query**.
-3. Mở file `supabase-schema.sql` trong gói Reader Studio, copy toàn bộ nội dung và dán vào SQL Editor.
-4. Bấm **Run**. Chỉ cần chạy file này một lần.
+JavaScript origin chỉ gồm giao thức + tên miền + port, không có đường dẫn `/reader-studio/` ở cuối.
 
-File SQL bật Row Level Security: người dùng chỉ được đọc và sửa dữ liệu thuộc đúng tài khoản của mình.
+## 3. Tạo `config.js`
 
-### Bước 2 — Cấu hình đăng nhập
-
-1. Trong Supabase, mở **Authentication → URL Configuration**.
-2. Đặt **Site URL** thành:
-
-   `https://rubbieduckie2k1-max.github.io/reader-studio/`
-
-3. Trong **Redirect URLs**, thêm hai địa chỉ:
-
-   - `https://rubbieduckie2k1-max.github.io/reader-studio/`
-   - `http://localhost:4173/`
-
-4. Đảm bảo đăng nhập bằng **Email** đang được bật trong **Authentication → Providers**.
-
-### Bước 3 — Điền thông tin public vào `config.js`
-
-1. Trong Supabase, mở khu vực **Project Settings / API Keys**.
-2. Copy **Project URL**.
-3. Copy **Publishable key**. Nếu giao diện cũ chưa có Publishable key, dùng `anon public` key.
-4. Nếu chưa có `config.js`, tạo một bản sao của `config.example.js`, đổi tên thành `config.js`, rồi mở bằng Notepad và điền:
+Copy `config.example.js`, đổi tên thành `config.js`, rồi điền Client ID:
 
 ```js
 window.READER_STUDIO_CONFIG = {
-  supabaseUrl: 'https://PROJECT_ID.supabase.co',
-  supabasePublishableKey: 'YOUR_PUBLISHABLE_KEY'
+  googleClientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com'
 };
 ```
 
-`Project URL` và Publishable/anon key được dùng công khai trong ứng dụng web. Tuyệt đối không điền database password, `service_role` key hoặc secret key vào file này.
+OAuth Client ID là mã public dành cho web, có thể nằm trong GitHub Pages. Không đặt Client Secret, mật khẩu Google, service-account key hoặc refresh token vào repository.
 
-### Bước 4 — Chuyển dữ liệu cũ lên cloud một lần
+## 4. Kết nối và chuyển dữ liệu cũ
 
-Thực hiện trên đúng máy tính và đúng địa chỉ đang chứa sách/ghi chú cũ:
+Thực hiện trước trên đúng trình duyệt/máy tính đang chứa thư viện Reader Studio cũ:
 
-1. Chép các file của bản 1.9.9 vào thư mục Reader Studio local cũ. Không xóa dữ liệu trình duyệt.
-2. Chạy `start.bat` và mở `http://localhost:4173`.
-3. Bấm **Đăng nhập** → tạo/đăng nhập bằng email cá nhân.
-4. Bấm **Đồng bộ dữ liệu hiện có**.
-5. Giữ trang mở cho đến khi trạng thái báo **Đã đồng bộ**.
+1. Chép bộ file 2.0 vào repository hoặc thư mục chạy local, nhưng **không xóa Site Data/IndexedDB**.
+2. Mở Reader Studio ở đúng URL cũ.
+3. Bấm **Kết nối Google** và chấp thuận quyền Drive + Sheets.
+4. Reader Studio tự tạo trong My Drive: `Reader Studio/Books`, `Reader Studio/Covers` và `Reader Studio/Reader Studio Database`.
+5. Trong cửa sổ tài khoản, bấm **Chuyển dữ liệu lên Google**.
+6. Giữ trang mở đến khi báo **Đã đồng bộ**. Với nhiều PDF/EPUB lớn, lần đầu có thể mất vài phút.
 
-Dữ liệu local cũ vẫn được giữ nguyên làm bản an toàn. Việc chuyển chỉ copy dữ liệu vào tài khoản, không xóa bản cũ.
+Quá trình chuyển là copy: dữ liệu IndexedDB cũ không bị xóa. Bản 2.0 tìm cả database local mặc định và cache tài khoản Supabase 1.x trên thiết bị để chuyển sang Google.
 
-### Bước 5 — Cập nhật GitHub Pages và dùng trên điện thoại
+## 5. Cập nhật GitHub Pages
 
-1. Giữ nguyên file `config.js` đang hoạt động trên GitHub. Upload các file của Reader Studio 1.9.9 vào root của repository và bấm thay thế file trùng tên; gói cập nhật không chứa `config.js` nên thông tin Supabase cũ không bị ghi đè.
-2. Commit và chờ GitHub Pages cập nhật.
-3. Mở `https://rubbieduckie2k1-max.github.io/reader-studio/` trên điện thoại.
-4. Đăng nhập bằng đúng email cá nhân ở bước 4.
+Upload các file sau vào root repository và thay file cũ:
 
-Danh sách sách và ghi chú sẽ tải xuống. File PDF/EPUB chỉ tải về điện thoại khi mở lần đầu; sau đó có thể đọc bản đã tải khi mất mạng.
+- `index.html`
+- `app.js`
+- `styles.css`
+- `service-worker.js`
+- `manifest.webmanifest`
+- `vendor/`
+- `config.js` của bạn
 
-Để mở giống một ứng dụng:
+Sau khi GitHub Pages cập nhật, mở site trên điện thoại, bấm **Kết nối Google** bằng cùng tài khoản rồi **Đồng bộ ngay**. Danh mục và ảnh bìa được lấy từ Google; PDF/EPUB được tải khi mở cuốn sách lần đầu.
 
-- Android/Chrome: menu `⋮` → **Thêm vào màn hình chính** hoặc **Cài đặt ứng dụng**.
-- iPhone/Safari: nút **Chia sẻ** → **Thêm vào Màn hình chính**.
+Nếu vẫn thấy giao diện cũ, đóng toàn bộ tab Reader Studio rồi mở lại hoặc tải lại trang hai lần để service worker 2.0 nhận bản mới.
 
-## Quên hoặc đổi mật khẩu
+## 6. Cách đồng bộ hoạt động
 
-- Nếu vẫn còn đăng nhập trên máy tính: mở **Tài khoản → Đổi mật khẩu**, nhập mật khẩu mới hai lần rồi lưu. Cách này không cần email.
-- Nếu đã đăng xuất: bấm **Đăng nhập**, nhập email, chọn **Quên mật khẩu?**, rồi mở liên kết Supabase gửi tới email. Reader Studio sẽ tự mở màn hình đặt mật khẩu mới.
-- Supabase giới hạn số email khôi phục. Nếu thấy `email rate limit exceeded`, ngừng gửi lại và chờ khoảng một giờ.
-- Đổi mật khẩu không thay đổi tài khoản nên toàn bộ sách và ghi chú vẫn được giữ nguyên.
+- Mọi thay đổi được lưu trên thiết bị trước.
+- Khi đã kết nối Google, thay đổi được xếp hàng và đẩy lên Sheets theo từng record; ứng dụng không tải lại toàn bộ file sách.
+- Ứng dụng đọc ô `revision` nhỏ trong Sheet trước. Chỉ khi revision thay đổi mới tải bảng metadata đầy đủ.
+- File PDF/EPUB và bìa chỉ upload khi chưa có hoặc khi bìa thực sự thay đổi.
+- Không tự đồng bộ mỗi lần chuyển tab trình duyệt; dùng hàng đợi sau khi sửa và nút **Đồng bộ ngay** để giảm request.
+- Xung đột dùng nguyên tắc bản có `updatedAt` mới hơn thắng.
+- Access token Google có thời hạn. Khi phiên hết hạn, bấm **Kết nối Google** lại; dữ liệu local vẫn nguyên vẹn.
 
-## Cơ chế đồng bộ
+## 7. Sao lưu và phục hồi
 
-- Mọi thay đổi được lưu vào thiết bị trước, sau đó tự đồng bộ khi có Internet.
-- Khi ngoại tuyến, thay đổi được xếp hàng và gửi lên khi mạng trở lại.
-- Có nút **Đồng bộ ngay** trong phần **Tài khoản**.
-- Mỗi tài khoản có kho cache riêng trên thiết bị; tài khoản khác không thấy dữ liệu của nhau.
-- Nếu cùng sửa một notebook trên hai thiết bị khi đều ngoại tuyến, bản lưu sau cùng sẽ được giữ.
+Toàn bộ bản cloud nằm trong thư mục `Reader Studio` ở My Drive. Bạn có thể tải thư mục về để sao lưu file sách và dùng Version history của Google Sheets để phục hồi bảng.
 
-## Chức năng
+Không tự đổi tên tab `META` và `RECORDS`, không xóa cột hoặc sửa JSON trong các cột `data_*` nếu không có bản sao lưu.
 
-- Sidebar thư viện gồm **Tổng / Nhóm / Note**. Bấm **‹** để ẩn và nút **›** ở mép trái để mở lại; lựa chọn được ghi nhớ cho lần sau.
-- Trên điện thoại, bấm **☰** để mở sidebar dạng trượt và bấm **×** để đóng.
-- Library: PDF/EPUB, ảnh bìa tùy chỉnh, sửa tên sách/tác giả và tiến độ đọc.
-- Thư viện và Status sách được chia trang để không kéo dài vô hạn; Status có bộ lọc **Tất cả / Đã đọc xong / Đang đọc / Chưa đọc**.
-- Có thể ghim tối đa hai cuốn sách; khung đầu thư viện chỉ hiện một cuốn và hỗ trợ nút chuyển, chấm trang cùng thao tác vuốt ngang trên mobile.
-- Quote of the Day lấy từ các quote yêu thích và dùng cùng bảng màu vintage của toàn bộ giao diện.
-- Tạo, đổi tên, xóa thể loại; một cuốn sách có thể nằm trong nhiều thể loại.
-- Tạo series và liên kết từng cuốn theo thứ tự phần; tiến độ đọc vẫn được lưu riêng cho từng cuốn.
-- PDF reader: fit width, zoom, 1 trang / 2 trang, fullscreen.
-- EPUB reader: paginated reader, tăng/giảm cỡ chữ, 1/2 trang.
-- Trên mobile, nhập số trang, xem tổng trang, lưu chỗ, quay lại chỗ đã lưu, đánh dấu và zoom trên cùng một thanh gọn.
-- Chế độ hai trang khóa điều hướng trong lúc chuyển và chỉ xử lý khi cử chỉ vuốt kết thúc, tránh lật hai lần hoặc bỏ qua trang cuối chương.
-- Bộ lọc thể loại trong thư viện và phần chọn thể loại khi sửa sách đều dùng dropdown; vẫn hỗ trợ một sách thuộc nhiều thể loại.
-- Highlight 3 màu vintage (aged gold, tobacco, oxblood), underline và strike marker. Màu tối dùng chữ sáng trong danh sách ghi chú để giữ độ tương phản.
-- Click vào đoạn đã đánh dấu để sửa note hoặc xóa highlight/underline.
-- Reader tự dàn lại trang khi mở hoặc đóng mục lục và bảng ghi chú.
-- Highlight và underline EPUB được khôi phục trực tiếp trên trang khi mở lại sách.
-- Dùng **Lưu chỗ** để ghi nhớ vị trí đang đọc và nút **↩** để quay lại ngay.
-- Note gắn vào đoạn được chọn.
-- Bookmark, TOC, tìm kiếm trong sách.
-- Notes/Highlights panel và click để quay lại vị trí gốc.
-- Resume reading và % tiến độ.
-- Dark mode và phím tắt.
-- Reading Notebook cho phép gõ trực tiếp, đổi Heading về văn bản thường, chỉnh màu chữ, màu nền chữ, bold, italic, underline và chèn highlight/note.
-- Notebook tổng ở ngoài thư viện để mở và chỉnh notebook của mọi cuốn sách tại một nơi.
-- Quét chữ -> **Dịch** -> chỉ hiện bản dịch ngắn gọn; có thể thêm vào Notebook.
+## 8. Chức năng chính
+
+- PDF/EPUB reader, mục lục, tìm kiếm, bookmark, resume reading và nhập số trang.
+- Zoom, fit width, chế độ một/hai trang; điều hướng hai trang không bỏ qua trang cuối chương.
+- Highlight ổn định khi đổi zoom/kích thước, underline, strike, note và dịch nhanh.
+- Reading Notebook theo từng sách và khu ghi chú chung.
+- Quote yêu thích và Quote of the Day có chế độ thu gọn.
+- Status sách phân trang, lọc đúng Đã đọc / Đang đọc / Chưa đọc và giữ số lượt hoàn thành.
+- Ghim tối đa hai sách, hiển thị dạng carousel trên desktop và mobile.
+- Thể loại, series/bộ truyện, xóa/đổi tên, sắp thứ tự phần.
+- Thư viện 4/5/6 bìa mỗi hàng trên desktop; bố cục mobile riêng.
+- Dark mode, PWA và cache offline.
+
+## 9. Quyền riêng tư
+
+Reader Studio chạy trực tiếp trong trình duyệt. Dữ liệu đọc được lưu vào Google Drive/Sheets của tài khoản bạn chọn. Ứng dụng không có server trung gian và không nhận mật khẩu Google.
+
+Tính năng dịch nhanh dùng MyMemory; chỉ đoạn chữ bạn chủ động bấm dịch mới được gửi đến dịch vụ đó.
+
+## 10. Xử lý lỗi nhanh
+
+- **Error 400: origin_mismatch**: thêm đúng origin hiện tại vào Authorized JavaScript origins.
+- **Access blocked / app in testing**: thêm email đang dùng vào Test users.
+- **Google Drive API has not been used**: bật Drive API và Sheets API, đợi vài phút rồi thử lại.
+- **Phiên Google đã hết hạn**: ngắt kết nối và kết nối lại.
+- **Điện thoại không thấy sách**: kiểm tra đúng tài khoản Google, bấm Đồng bộ ngay và không dùng trình duyệt private/incognito.
+- **Upload chưa xong**: giữ tab mở, kiểm tra mạng và dung lượng Drive; bấm Đồng bộ ngay lần nữa. Hàng đợi local sẽ tiếp tục từ mục chưa xong.
 
 ## Phím tắt
 
-- `←` / `→`: trang trước / trang sau
-- `H`: highlight vàng đoạn đang chọn
-- `N`: tạo note cho đoạn đang chọn
+- `←` / `→`: trang trước / sau
+- `H`: highlight đoạn đang chọn
+- `N`: tạo note
 - `B`: bookmark
 - `Ctrl + F`: tìm trong sách
-- `Esc`: đóng popup/toolbar
-
-## Lưu dữ liệu
-
-Khi chưa cấu hình/đăng nhập, sách, annotation, notebook và tiến độ chỉ được lưu trong **IndexedDB của trình duyệt**.
-
-Khi đăng nhập, dữ liệu được lưu local-first và đồng bộ vào project Supabase cá nhân. Bucket sách là private và Row Level Security giới hạn dữ liệu theo tài khoản đăng nhập.
-
-Không xóa Site Data/Browser Data của `localhost:4173` nếu muốn giữ thư viện hiện tại.
-
-## Dịch nhanh
-
-Dịch nhanh mặc định dùng MyMemory. Chỉ đoạn chữ bạn bấm **Dịch** mới được gửi tới dịch vụ dịch. Có thể đổi hướng English ↔ Vietnamese trong Settings. Tính năng này cần Internet.
-
-## Ghi chú kỹ thuật
-
-- PDF có text layer: highlight/search/translate hoạt động trực tiếp.
-- EPUB strike được hiển thị bằng một marker đỏ nhẹ để giữ vị trí ổn định trên EPUB reflow.
-- PDF.js và EPUB.js được tải động từ CDN khi cần; vì vậy lần đầu mở từng định dạng cần Internet.
+- `Esc`: đóng popup

@@ -84,7 +84,16 @@
     librarySidebarCollapsed: localStorage.getItem('reader-library-sidebar-collapsed') === '1',
     libraryCollectionsCollapsed: localStorage.getItem('reader-library-collections-collapsed') === '1',
     libraryAuthorsCollapsed: localStorage.getItem('reader-library-authors-collapsed') === '1',
-    supabase: null,
+    googleTokenClient: null,
+    googleAccessToken: null,
+    googleTokenExpiresAt: 0,
+    googleRootFolderId: null,
+    googleBooksFolderId: null,
+    googleCoversFolderId: null,
+    googleSheetId: null,
+    googleRevision: '0',
+    googleRowMap: new Map(),
+    googleNextRow: 2,
     cloudUser: null,
     cloudConfigured: false,
     syncing: false,
@@ -122,9 +131,8 @@
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang','uiScaleRange','uiScaleValue','uiScalePresets',
       'saveSettingsBtn','bookSettingsModal','bookCoverPreview','customCoverInput','chooseCoverBtn','restoreCoverBtn','bookTitleInput','bookAuthorInput',
       'bookCollectionDropdown','bookCollectionDropdownLabel','bookCollectionChoices','bookCreateCollectionBtn','bookSeriesSelect','bookSeriesOrderInput','bookPinFromSettingsBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
-      'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','seriesModal','seriesModalTitle','seriesNameInput','deleteSeriesBtn','saveSeriesBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authEmail','authPassword','authMessage',
-      'signUpBtn','signInBtn','forgotPasswordBtn','resetPasswordPanel','resetPasswordIntro','newPassword','confirmNewPassword','resetPasswordMessage',
-      'saveNewPasswordBtn','cancelResetPasswordBtn','changePasswordBtn','accountEmail','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn',
+      'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','seriesModal','seriesModalTitle','seriesNameInput','deleteSeriesBtn','saveSeriesBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authMessage',
+      'googleConnectBtn','accountEmail','googleStorageSummary','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn',
       'mobileBookSheetBackdrop','mobileBookSheet','mobileBookSheetCover','mobileBookSheetTitle','mobileBookSheetAuthor','mobileBookSheetProgress','mobileBookOpenBtn','mobileBookPinBtn','mobileBookSettingsBtn','toast'
     ].forEach(id => els[id] = document.getElementById(id));
   };
@@ -831,6 +839,462 @@
   }
 
 
+  // ---------- Google Drive + Sheets sync (v2) ----------
+  // These declarations intentionally replace the legacy Supabase adapter above.
+  // Keeping the older adapter in this source release makes local-data migration
+  // from 1.x safer while all active calls are routed through Google APIs.
+  const GOOGLE_SCOPES = ['openid','email','profile','https://www.googleapis.com/auth/drive.file','https://www.googleapis.com/auth/spreadsheets'].join(' ');
+  const GOOGLE_DATA_CHUNKS = 20;
+  const GOOGLE_CHUNK_SIZE = 30000;
+  const GOOGLE_RECORD_LAST_COLUMN = 'AB';
+
+  function cloudConfig() {
+    const clientId = String((window.READER_STUDIO_CONFIG || {}).googleClientId || '').trim();
+    return { clientId, configured:/\.apps\.googleusercontent\.com$/i.test(clientId) && !/YOUR_|PASTE_|example|client-id/i.test(clientId) };
+  }
+
+  async function initCloud() {
+    const config = cloudConfig();
+    state.cloudConfigured = config.configured;
+    updateAccountUI();
+    if (!config.configured) return;
+    try {
+      if (!window.google?.accounts?.oauth2) await loadScript('https://accounts.google.com/gsi/client', 'Google');
+      state.googleTokenClient = window.google.accounts.oauth2.initTokenClient({ client_id:config.clientId, scope:GOOGLE_SCOPES, callback:() => {} });
+      updateAccountUI();
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('error', 'Lỗi cấu hình Google');
+      updateAccountUI(error.message);
+    }
+  }
+
+  function friendlyGoogleError(error) {
+    const message = String(error?.message || error || 'Không thể kết nối Google.');
+    if (/popup_closed|access_denied/i.test(message)) return 'Bạn đã đóng hoặc từ chối cửa sổ đăng nhập Google.';
+    if (/invalid_client|origin/i.test(message)) return 'Google Client ID chưa cho phép địa chỉ website này. Kiểm tra Authorized JavaScript origins.';
+    if (/401|token|credential/i.test(message)) return 'Phiên Google đã hết hạn. Hãy kết nối lại.';
+    if (/403|permission|insufficient/i.test(message)) return 'Google chưa cấp đủ quyền Drive/Sheets cho Reader Studio.';
+    return message;
+  }
+
+  async function handleSignIn() {
+    if (!state.googleTokenClient) return toast('Chưa cấu hình Google Client ID', 3500);
+    els.googleConnectBtn.disabled = true;
+    els.authMessage.textContent = 'Đang mở đăng nhập Google...';
+    try {
+      const token = await new Promise((resolve, reject) => {
+        state.googleTokenClient.callback = response => response?.error ? reject(new Error(response.error_description || response.error)) : resolve(response);
+        const prompt = localStorage.getItem('reader-google-consent-granted') === '1' ? '' : 'consent';
+        state.googleTokenClient.requestAccessToken({ prompt });
+      });
+      state.googleAccessToken = token.access_token;
+      state.googleTokenExpiresAt = Date.now() + Number(token.expires_in || 3600) * 1000;
+      localStorage.setItem('reader-google-consent-granted', '1');
+      const profile = await googleJson('https://openidconnect.googleapis.com/v1/userinfo');
+      await activateCloudUser({ id:profile.sub, email:profile.email, name:profile.name, picture:profile.picture });
+      els.authMessage.textContent = '';
+      closeModals();
+      toast('Đã kết nối Google Drive');
+    } catch (error) {
+      console.error(error);
+      els.authMessage.textContent = friendlyGoogleError(error);
+    } finally {
+      els.googleConnectBtn.disabled = false;
+    }
+  }
+
+  async function googleFetch(url, options = {}) {
+    if (!state.googleAccessToken || Date.now() >= state.googleTokenExpiresAt - 15000) throw new Error('Phiên Google đã hết hạn. Hãy kết nối lại.');
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', `Bearer ${state.googleAccessToken}`);
+    const response = await freshCloudFetch(url, { ...options, headers });
+    if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json())?.error?.message || ''; } catch (_) {}
+      throw new Error(detail || `Google API ${response.status}`);
+    }
+    return response;
+  }
+
+  async function googleJson(url, options = {}) {
+    const response = await googleFetch(url, options);
+    return response.status === 204 ? null : response.json();
+  }
+
+  function resourceCacheKey() { return `reader-google-workspace:${state.cloudUser?.id || 'unknown'}`; }
+
+  async function driveFind(appType) {
+    const q = `trashed = false and appProperties has { key='readerStudioType' and value='${appType}' }`;
+    const data = await googleJson(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,parents)&pageSize=10`);
+    return data.files?.[0] || null;
+  }
+
+  async function driveCreate(metadata) {
+    return googleJson('https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType,parents', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(metadata) });
+  }
+
+  async function activateCloudUser(user) {
+    if (state.authSwitching) return;
+    state.authSwitching = true;
+    try {
+      state.cloudUser = user;
+      state.activeDbName = userDbName(user.id);
+      state.db = await openDB(state.activeDbName);
+      await ensureGoogleWorkspace();
+      state.lastSyncAt = 0;
+      state.globalNotebookLoaded = false;
+      state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
+      await showLibraryPanel('books');
+      await refreshLibrary();
+      updateAccountUI();
+      await syncNow({ quiet:true, forcePull:true });
+      await updateLegacyMigrationUI();
+    } finally { state.authSwitching = false; }
+  }
+
+  async function deactivateCloudUser() {
+    clearTimeout(state.syncTimer);
+    state.cloudUser = null;
+    state.googleAccessToken = null;
+    state.googleTokenExpiresAt = 0;
+    state.googleRowMap = new Map();
+    state.googleNextRow = 2;
+    state.activeDbName = LEGACY_DB_NAME;
+    state.db = state.legacyDb;
+    state.globalNotebookLoaded = false;
+    state.globalNotebookBookId = GLOBAL_NOTEBOOK_ID;
+    await showLibraryPanel('books');
+    await refreshLibrary();
+    updateAccountUI();
+  }
+
+  function updateAccountUI(errorMessage = '') {
+    if (!els.accountBtn) return;
+    els.cloudNotConfigured.classList.toggle('hidden', state.cloudConfigured);
+    els.signedOutPanel.classList.toggle('hidden', !state.cloudConfigured || !!state.cloudUser);
+    els.signedInPanel.classList.toggle('hidden', !state.cloudUser);
+    els.accountBtn.textContent = state.cloudUser ? 'Tài khoản' : 'Kết nối Google';
+    if (state.cloudUser) {
+      els.accountEmail.textContent = state.cloudUser.email || 'Tài khoản Google';
+      if (els.googleStorageSummary) els.googleStorageSummary.textContent = 'Drive lưu PDF/EPUB và bìa · Sheets lưu tiến độ, note và highlight';
+      if (!state.syncing) setSyncStatus('online', state.lastSyncAt ? 'Đã đồng bộ' : 'Đã kết nối');
+    } else if (state.cloudConfigured) setSyncStatus('', 'Chưa kết nối Google');
+    else setSyncStatus('', 'Chỉ lưu trên máy');
+    if (errorMessage) els.authMessage.textContent = errorMessage;
+  }
+
+  async function handleSignOut() {
+    if (state.globalNotebookLoaded) await saveGlobalNotebook();
+    els.signOutBtn.disabled = true;
+    if (state.googleAccessToken && window.google?.accounts?.oauth2) await new Promise(resolve => window.google.accounts.oauth2.revoke(state.googleAccessToken, resolve));
+    await deactivateCloudUser();
+    els.signOutBtn.disabled = false;
+    closeModals();
+    toast('Đã ngắt kết nối Google · dữ liệu cloud được ẩn');
+  }
+
+  async function ensureGoogleWorkspace() {
+    const cached = JSON.parse(localStorage.getItem(resourceCacheKey()) || '{}');
+    state.googleRootFolderId = cached.root || (await driveFind('root'))?.id || null;
+    if (!state.googleRootFolderId) state.googleRootFolderId = (await driveCreate({ name:'Reader Studio', mimeType:'application/vnd.google-apps.folder', appProperties:{ readerStudioType:'root', schema:'2' } })).id;
+    state.googleBooksFolderId = cached.books || (await driveFind('books'))?.id || null;
+    if (!state.googleBooksFolderId) state.googleBooksFolderId = (await driveCreate({ name:'Books', mimeType:'application/vnd.google-apps.folder', parents:[state.googleRootFolderId], appProperties:{ readerStudioType:'books' } })).id;
+    state.googleCoversFolderId = cached.covers || (await driveFind('covers'))?.id || null;
+    if (!state.googleCoversFolderId) state.googleCoversFolderId = (await driveCreate({ name:'Covers', mimeType:'application/vnd.google-apps.folder', parents:[state.googleRootFolderId], appProperties:{ readerStudioType:'covers' } })).id;
+    state.googleSheetId = cached.sheet || (await driveFind('database'))?.id || null;
+    if (!state.googleSheetId) await createGoogleDatabase();
+    localStorage.setItem(resourceCacheKey(), JSON.stringify({ root:state.googleRootFolderId, books:state.googleBooksFolderId, covers:state.googleCoversFolderId, sheet:state.googleSheetId }));
+    state.googleRevision = localStorage.getItem(`${resourceCacheKey()}:revision`) || '0';
+  }
+
+  async function createGoogleDatabase() {
+    state.googleSheetId = (await driveCreate({ name:'Reader Studio Database', mimeType:'application/vnd.google-apps.spreadsheet', parents:[state.googleRootFolderId], appProperties:{ readerStudioType:'database', schema:'2' } })).id;
+    const spreadsheet = await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}?fields=sheets.properties`);
+    const firstSheetId = spreadsheet.sheets?.[0]?.properties?.sheetId;
+    await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}:batchUpdate`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ requests:[
+      { updateSheetProperties:{ properties:{ sheetId:firstSheetId, title:'META' }, fields:'title' } },
+      { addSheet:{ properties:{ title:'RECORDS', frozenRowCount:1 } } }
+    ] }) });
+    await sheetWrite('META!A1', [['key','value'],['revision','0'],['schema_version','2'],['created_at',String(Date.now())],['root_folder_id',state.googleRootFolderId]]);
+    await sheetWrite('RECORDS!A1', [['store','item_id','book_id','updated_at','deleted','drive_file_id','cover_file_id','mime_type', ...Array.from({ length:GOOGLE_DATA_CHUNKS }, (_, i) => `data_${i + 1}`)]]);
+  }
+
+  async function sheetRead(range) {
+    const data = await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}/values/${encodeURIComponent(range)}?majorDimension=ROWS`);
+    return data.values || [];
+  }
+
+  async function sheetWrite(range, values) {
+    return googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, { method:'PUT', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ range, majorDimension:'ROWS', values }) });
+  }
+
+  async function fetchCloudRevision() {
+    return String((await sheetRead('META!A1:B10')).find(row => row[0] === 'revision')?.[1] || '0');
+  }
+
+  function coverFingerprint(cover) {
+    if (!cover) return '';
+    let hash = 2166136261, step = Math.max(1, Math.floor(cover.length / 64));
+    for (let i = 0; i < cover.length; i += step) hash = Math.imul(hash ^ cover.charCodeAt(i), 16777619);
+    return `${cover.length}-${(hash >>> 0).toString(16)}`;
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const [head, payload] = String(dataUrl).split(',');
+    const binary = atob(payload || ''), bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type:head?.match(/data:([^;]+)/)?.[1] || 'image/jpeg' });
+  }
+
+  async function uploadDriveBlob(blob, metadata, existingId = null) {
+    const boundary = `reader_${uid().replace(/-/g, '')}`;
+    const body = new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,`--${boundary}\r\nContent-Type: ${blob.type || 'application/octet-stream'}\r\n\r\n`,blob,`\r\n--${boundary}--`]);
+    const url = existingId ? `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=multipart&fields=id,name,mimeType` : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType';
+    return googleJson(url, { method:existingId ? 'PATCH' : 'POST', headers:{ 'Content-Type':`multipart/related; boundary=${boundary}` }, body });
+  }
+
+  async function uploadBookFile(book) {
+    if (book.googleFileId) return book.googleFileId;
+    if (!book.fileData) throw new Error(`Thiếu file của “${book.title}”.`);
+    const ext = book.type === 'pdf' ? 'pdf' : 'epub';
+    const mime = book.type === 'pdf' ? 'application/pdf' : 'application/epub+zip';
+    const file = await uploadDriveBlob(new Blob([book.fileData], { type:mime }), { name:`${book.id}.${ext}`, mimeType:mime, parents:[state.googleBooksFolderId], appProperties:{ readerStudioBookId:book.id } });
+    book.googleFileId = file.id;
+    await dbPut('books', book, { skipSync:true });
+    return file.id;
+  }
+
+  async function uploadBookCover(book) {
+    if (!book.cover?.startsWith('data:')) return book.googleCoverFileId || null;
+    const fingerprint = coverFingerprint(book.cover);
+    if (book.googleCoverFileId && book.googleCoverFingerprint === fingerprint) return book.googleCoverFileId;
+    const blob = dataUrlToBlob(book.cover);
+    const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+    const metadata = { name:`${book.id}.${ext}`, mimeType:blob.type, appProperties:{ readerStudioBookId:book.id } };
+    if (!book.googleCoverFileId) metadata.parents = [state.googleCoversFolderId];
+    const file = await uploadDriveBlob(blob, metadata, book.googleCoverFileId || null);
+    book.googleCoverFileId = file.id;
+    book.googleCoverFingerprint = fingerprint;
+    await dbPut('books', book, { skipSync:true });
+    return file.id;
+  }
+
+  function serializeRecord(store, value) {
+    if (store !== 'books') return value;
+    const { fileData, cover, originalCover, cloudFilePath, ...metadata } = value;
+    return metadata;
+  }
+
+  function recordToSheetRow(record) {
+    const json = record.deleted ? '' : JSON.stringify(record.data || {});
+    if (json.length > GOOGLE_DATA_CHUNKS * GOOGLE_CHUNK_SIZE) throw new Error(`Dữ liệu ${record.store}:${record.item_id} quá lớn để lưu trong Google Sheets.`);
+    const chunks = Array.from({ length:GOOGLE_DATA_CHUNKS }, (_, i) => json.slice(i * GOOGLE_CHUNK_SIZE, (i + 1) * GOOGLE_CHUNK_SIZE));
+    return [record.store,record.item_id,record.book_id || '',String(record.updated_at || 0),record.deleted ? 'TRUE' : 'FALSE',record.drive_file_id || '',record.cover_file_id || '',record.mime_type || '',...chunks];
+  }
+
+  async function queueSyncChange(store, value, operation, database) {
+    if (!SYNC_STORES.includes(store) || state.applyingRemote || !state.cloudUser || database !== state.db || state.activeDbName === LEGACY_DB_NAME) return;
+    const itemId = recordId(store, value);
+    if (!itemId) return;
+    await dbPut('syncQueue', { key:`${store}:${itemId}`, store, itemId, bookId:store === 'books' ? itemId : (value.bookId || null), operation, updatedAt:operation === 'delete' ? Date.now() : (recordTimestamp(value) || Date.now()), driveFileId:store === 'books' ? value.googleFileId || null : null, coverFileId:store === 'books' ? value.googleCoverFileId || null : null }, { database, skipSync:true });
+    setSyncStatus('pending', 'Chờ đồng bộ');
+    scheduleCloudFlush();
+  }
+
+  async function fetchRemoteRecords() {
+    const values = await sheetRead(`RECORDS!A2:${GOOGLE_RECORD_LAST_COLUMN}`), rows = [];
+    state.googleRowMap = new Map();
+    values.forEach((row, index) => {
+      if (!row[0] || !row[1]) return;
+      state.googleRowMap.set(`${row[0]}:${row[1]}`, index + 2);
+      let data = null;
+      if (String(row[4]).toUpperCase() !== 'TRUE') {
+        try { data = JSON.parse(row.slice(8, 8 + GOOGLE_DATA_CHUNKS).join('') || '{}'); } catch (error) { console.warn('Record Sheets bị lỗi:', row[0], row[1], error); return; }
+      }
+      rows.push({ store:row[0], item_id:row[1], book_id:row[2] || null, updated_at:Number(row[3] || 0), deleted:String(row[4]).toUpperCase() === 'TRUE', drive_file_id:row[5] || null, cover_file_id:row[6] || null, mime_type:row[7] || '', data });
+    });
+    state.googleNextRow = Math.max(2, values.length + 2);
+    return rows;
+  }
+
+  async function flushSyncQueue() {
+    if (!state.cloudUser || !state.googleSheetId || !navigator.onLine) return;
+    if (!state.googleRowMap.size) await fetchRemoteRecords();
+    const changes = (await dbGetAll('syncQueue')).sort((a,b) => a.updatedAt - b.updatedAt);
+    if (!changes.length) return;
+    const writes = [];
+    for (const change of changes) {
+      if (change.operation === 'delete') {
+        writes.push({ change, payload:{ store:change.store,item_id:change.itemId,book_id:change.bookId,updated_at:change.updatedAt,deleted:true,drive_file_id:change.driveFileId,cover_file_id:change.coverFileId } });
+        if (change.store === 'books') await Promise.all([change.driveFileId,change.coverFileId].filter(Boolean).map(id => googleFetch(`https://www.googleapis.com/drive/v3/files/${id}`, { method:'DELETE' }).catch(() => null)));
+        continue;
+      }
+      const value = await dbGet(change.store, change.itemId);
+      if (!value) { change.operation = 'delete'; change.updatedAt = Date.now(); await dbPut('syncQueue', change, { skipSync:true }); continue; }
+      const driveFileId = change.store === 'books' ? await uploadBookFile(value) : null;
+      const coverFileId = change.store === 'books' ? await uploadBookCover(value) : null;
+      writes.push({ change, payload:{ store:change.store,item_id:change.itemId,book_id:change.store === 'books' ? change.itemId : value.bookId || null,data:serializeRecord(change.store,value),drive_file_id:driveFileId,cover_file_id:coverFileId,mime_type:change.store === 'books' ? (value.type === 'pdf' ? 'application/pdf' : 'application/epub+zip') : '',updated_at:recordTimestamp(value) || Date.now(),deleted:false } });
+    }
+    if (!writes.length) return;
+    const data = writes.map(write => {
+      const key = `${write.payload.store}:${write.payload.item_id}`;
+      let row = state.googleRowMap.get(key);
+      if (!row) { row = state.googleNextRow++; state.googleRowMap.set(key,row); }
+      return { range:`RECORDS!A${row}:${GOOGLE_RECORD_LAST_COLUMN}${row}`, majorDimension:'ROWS', values:[recordToSheetRow(write.payload)] };
+    });
+    await googleJson(`https://sheets.googleapis.com/v4/spreadsheets/${state.googleSheetId}/values:batchUpdate`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ valueInputOption:'RAW', data }) });
+    const revision = String(Date.now());
+    await sheetWrite('META!A2:B2', [['revision',revision]]);
+    state.googleRevision = revision;
+    localStorage.setItem(`${resourceCacheKey()}:revision`, revision);
+    for (const write of writes) await completeQueuedChange(write.change);
+  }
+
+  async function applyRemoteRecord(remote) {
+    state.applyingRemote = true;
+    try {
+      if (remote.deleted) return dbDelete(remote.store, remote.item_id, { skipSync:true });
+      const value = { ...(remote.data || {}) };
+      if (remote.store === 'books') {
+        const local = await dbGet('books', remote.item_id).catch(() => null);
+        value.id = remote.item_id;
+        value.googleFileId = remote.drive_file_id || value.googleFileId || null;
+        value.googleCoverFileId = remote.cover_file_id || value.googleCoverFileId || null;
+        if (local?.fileData) value.fileData = local.fileData;
+        if (local?.cover) value.cover = local.cover;
+        if (local?.originalCover) value.originalCover = local.originalCover;
+      } else if (remote.store === 'notebooks') value.bookId = remote.item_id;
+      else value.id = remote.item_id;
+      await dbPut(remote.store, value, { skipSync:true });
+    } finally { state.applyingRemote = false; }
+  }
+
+  async function reconcileCloud() {
+    const remoteRows = await fetchRemoteRecords();
+    const remote = new Map(remoteRows.map(row => [`${row.store}:${row.item_id}`,row]));
+    for (const store of SYNC_STORES) for (const value of await dbGetAll(store)) {
+      const itemId = recordId(store,value), key = `${store}:${itemId}`, cloud = remote.get(key);
+      if (!cloud) { await queueSyncChange(store,value,'put',state.db); continue; }
+      remote.delete(key);
+      const localTime = recordTimestamp(value), remoteTime = Number(cloud.updated_at || 0);
+      if (cloud.deleted) { if (localTime > remoteTime) await queueSyncChange(store,value,'put',state.db); else await applyRemoteRecord(cloud); }
+      else if (remoteTime > localTime) await applyRemoteRecord(cloud);
+      else if (localTime > remoteTime) await queueSyncChange(store,value,'put',state.db);
+      else if (store === 'books' && (!value.googleFileId || !value.googleCoverFileId) && (cloud.drive_file_id || cloud.cover_file_id)) await applyRemoteRecord(cloud);
+    }
+    for (const cloud of remote.values()) await applyRemoteRecord(cloud);
+    state.googleRevision = await fetchCloudRevision();
+    localStorage.setItem(`${resourceCacheKey()}:revision`, state.googleRevision);
+  }
+
+  async function verifyCloudMirror() {
+    const remote = new Map((await fetchRemoteRecords()).map(row => [`${row.store}:${row.item_id}`,row]));
+    const missing = [];
+    for (const store of SYNC_STORES) for (const value of await dbGetAll(store)) {
+      const cloud = remote.get(`${store}:${recordId(store,value)}`);
+      if (!cloud || cloud.deleted || Number(cloud.updated_at || 0) < recordTimestamp(value)) missing.push(`${store}:${recordId(store,value)}`);
+    }
+    const queued = await dbGetAll('syncQueue');
+    if (missing.length || queued.length) throw new Error(`Google Sheets còn thiếu ${missing.length || queued.length} mục. Hãy bấm Đồng bộ ngay lần nữa.`);
+  }
+
+  async function syncNow(options = {}) {
+    if (!state.cloudUser || !state.googleSheetId) return;
+    if (!navigator.onLine) { setSyncStatus('error','Đang ngoại tuyến'); if (!options.quiet) toast('Không có kết nối Internet'); return; }
+    if (state.syncing) return;
+    state.syncing = true;
+    if (els.syncNowBtn) els.syncNowBtn.disabled = true;
+    setSyncStatus('syncing','Đang đồng bộ...');
+    try {
+      const revision = await fetchCloudRevision();
+      if (options.forcePull || !state.googleRowMap.size || revision !== state.googleRevision) await reconcileCloud();
+      await flushSyncQueue();
+      if (!options.quiet) await verifyCloudMirror();
+      state.lastSyncAt = Date.now();
+      await refreshLibrary();
+      await refreshOpenReaderAfterSync();
+      hydrateMissingCovers().catch(console.warn);
+      setSyncStatus('online','Đã đồng bộ');
+      if (!options.quiet) toast('Đã đồng bộ xong');
+    } catch (error) {
+      console.error(error);
+      setSyncStatus('error','Đồng bộ gặp lỗi');
+      if (!options.quiet) toast(`Không thể đồng bộ: ${friendlyGoogleError(error)}`,4200);
+      if (options.throwOnError) throw error;
+    } finally { state.syncing = false; if (els.syncNowBtn) els.syncNowBtn.disabled = false; }
+  }
+
+  async function ensureLocalBookFile(book) {
+    if (book.fileData) return book;
+    if (!state.cloudUser || !book.googleFileId) throw new Error('File sách chưa có trên thiết bị này.');
+    if (!navigator.onLine) throw new Error('Hãy kết nối Internet để tải sách lần đầu trên thiết bị này.');
+    const response = await googleFetch(`https://www.googleapis.com/drive/v3/files/${book.googleFileId}?alt=media`);
+    book.fileData = await response.arrayBuffer();
+    await dbPut('books',book,{ skipSync:true });
+    return book;
+  }
+
+  function blobToDataUrl(blob) { return new Promise((resolve,reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob); }); }
+
+  async function hydrateMissingCovers() {
+    if (!state.cloudUser || !navigator.onLine) return;
+    const pending = (await dbGetAll('books')).filter(book => !book.cover && book.googleCoverFileId);
+    for (const book of pending) {
+      try {
+        const response = await googleFetch(`https://www.googleapis.com/drive/v3/files/${book.googleCoverFileId}?alt=media`);
+        book.cover = await blobToDataUrl(await response.blob());
+        await dbPut('books',book,{ skipSync:true });
+      } catch (error) { console.warn(`Không tải được bìa ${book.title}:`,error); }
+    }
+    if (pending.length) await refreshLibrary();
+  }
+
+  async function legacySourceDatabases() {
+    const sources = [{ name:LEGACY_DB_NAME, db:state.legacyDb }];
+    if (!indexedDB.databases) return sources;
+    for (const item of await indexedDB.databases().catch(() => [])) {
+      if (item.name?.startsWith('ReaderStudioDB-user-') && item.name !== state.activeDbName) sources.push({ name:item.name, db:await openDB(item.name) });
+    }
+    return sources;
+  }
+
+  async function updateLegacyMigrationUI() {
+    if (!state.cloudUser || state.db === state.legacyDb) return els.legacyMigrationBox?.classList.add('hidden');
+    const migrationKey = `reader-google-migrated:${location.origin}:${state.cloudUser.id}`;
+    if (localStorage.getItem(migrationKey) === '1') return els.legacyMigrationBox.classList.add('hidden');
+    const counts = Object.fromEntries(SYNC_STORES.map(store => [store,0]));
+    for (const source of await legacySourceDatabases()) for (const store of SYNC_STORES) counts[store] += (await dbGetAll(store,source.db)).length;
+    const total = Object.values(counts).reduce((sum,count) => sum + count,0);
+    els.legacyMigrationBox.classList.toggle('hidden',total === 0);
+    els.legacyMigrationText.textContent = `${counts.books} sách · ${counts.annotations} đánh dấu · ${counts.bookmarks} bookmark · ${counts.notebooks} notebook đang chờ chuyển.`;
+  }
+
+  async function migrateLegacyData() {
+    if (!state.cloudUser || state.db === state.legacyDb) return;
+    els.migrateLocalBtn.disabled = true;
+    els.migrateLocalBtn.textContent = 'Đang chuyển dữ liệu...';
+    try {
+      for (const sourceDb of await legacySourceDatabases()) for (const store of SYNC_STORES) for (const source of await dbGetAll(store,sourceDb.db)) {
+        const itemId = recordId(store,source), target = await dbGet(store,itemId).catch(() => null);
+        if (!target || recordTimestamp(source) > recordTimestamp(target)) {
+          const copy = { ...source };
+          if (store === 'books') { delete copy.cloudFilePath; delete copy.googleFileId; delete copy.googleCoverFileId; delete copy.googleCoverFingerprint; }
+          await dbPut(store,copy,{ skipSync:true });
+        }
+      }
+      await queueAllLocalData();
+      await refreshLibrary();
+      await syncNow({ throwOnError:true });
+      localStorage.setItem(`reader-google-migrated:${location.origin}:${state.cloudUser.id}`,'1');
+      els.legacyMigrationBox.classList.add('hidden');
+      toast('Đã chuyển dữ liệu lên Google Drive & Sheets');
+    } catch (error) {
+      console.error(error);
+      toast(`Chưa chuyển xong: ${friendlyGoogleError(error)}`,4200);
+    } finally { els.migrateLocalBtn.disabled = false; els.migrateLocalBtn.textContent = 'Chuyển dữ liệu lên Google'; }
+  }
+
   const enginePromises = {};
   function loadScript(src, key) {
     if (enginePromises[key]) return enginePromises[key];
@@ -875,7 +1339,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=1.9.9', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=2.0.0', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1099,21 +1563,10 @@
       }
     });
     els.translationNotebookBtn.addEventListener('click', addTranslationToNotebook);
-    els.signInBtn.addEventListener('click', handleSignIn);
-    els.signUpBtn.addEventListener('click', handleSignUp);
-    els.forgotPasswordBtn.addEventListener('click', requestPasswordRecovery);
-    els.changePasswordBtn.addEventListener('click', showPasswordResetPanel);
-    els.cancelResetPasswordBtn.addEventListener('click', cancelPasswordReset);
-    els.saveNewPasswordBtn.addEventListener('click', saveNewPassword);
+    els.googleConnectBtn.addEventListener('click', handleSignIn);
     els.signOutBtn.addEventListener('click', handleSignOut);
     els.syncNowBtn.addEventListener('click', () => syncNow());
     els.migrateLocalBtn.addEventListener('click', migrateLegacyData);
-    els.authPassword.addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleSignIn();
-    });
-    [els.newPassword, els.confirmNewPassword].forEach(input => input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') saveNewPassword();
-    }));
 
     bindNotebookEditor(els.bookNotebookToolbar, els.notebookEditor, scheduleNotebookSave);
     bindNotebookEditor(els.globalNotebookToolbar, els.globalNotebookEditor, scheduleGlobalNotebookSave);
@@ -1152,9 +1605,6 @@
     bindMobileReaderGestures(els.pdfReader);
     window.addEventListener('online', () => syncNow({ quiet:true }));
     window.addEventListener('offline', () => state.cloudUser && setSyncStatus('error', 'Đang ngoại tuyến'));
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && state.cloudUser) syncNow({ quiet:true });
-    });
   }
 
   function isSelectionToolTarget(target) {
