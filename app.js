@@ -54,6 +54,7 @@
     globalNotebookLoaded: false,
     globalNotebookItems: [],
     favoriteQuotes: [],
+    favoriteQuotePage: 1,
     expandedFavoriteQuoteIds: new Set(),
     quotePreviewOffset: 0,
     quoteExpanded: false,
@@ -78,6 +79,8 @@
     pendingCoverMode: null,
     notebookRanges: new WeakMap(),
     progressSaveTimer: null,
+    progressSampleReady: false,
+    readerOpenedAt: 0,
     readerLayoutTimer: null,
     epubTypographyTimer: null,
     readerResizeObserver: null,
@@ -120,7 +123,7 @@
       'libraryView','readerView','bookGrid','libraryEmpty','addBookBtn','emptyAddBtn','bookFileInput','librarySearch','collectionsBar','collectionsChips','authorsBar','libraryHero','quoteOfDay','libraryResultCount','libraryPagination',
       'librarySidebar','librarySidebarHideBtn','librarySidebarShowBtn','librarySidebarMobileBtn',
       'collectionFilterSelect','collectionFilterMeta','manageCollectionBtn','seriesFilterSelect','seriesFilterMeta','manageSeriesBtn','authorFilterSelect','authorFilterMeta','createSeriesBtn',
-      'libraryBooksPanel','libraryStatusPanel','libraryQuotesPanel','favoriteQuoteCount','favoriteQuoteList','statusTotalBooks','statusCompletedBooks','statusActiveBooks','statusFilterSelect','statusBookList','statusPagination','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookSearch','globalNotebookEmpty','createNotebookNoteBtn','globalNotebookTitle','globalNotebookOpenBookBtn',
+      'libraryBooksPanel','libraryStatusPanel','libraryQuotesPanel','favoriteQuoteCount','favoriteQuoteList','favoriteQuotePagination','statusTotalBooks','statusCompletedBooks','statusActiveBooks','statusFilterSelect','statusBookList','statusPagination','globalNotebookPanel','globalNotebookList','globalNotebookCount','globalNotebookSearch','globalNotebookEmpty','createNotebookNoteBtn','globalNotebookTitle','globalNotebookOpenBookBtn',
       'globalNotebookToolbar','globalNotebookEditor','globalNotebookSaveState','notebookNoteModal','notebookNoteBookSelect','notebookNoteTitle','saveNewNotebookNoteBtn',
       'syncStatus','accountBtn','libraryThemeBtn','settingsBtn','backBtn','leftSidebarBtn','rightSidebarBtn','readerTitle','readerAuthor','locationLabel','pdfPageJump','pageNumberInput','pageTotalLabel',
       'zoomOutBtn','zoomInBtn','fitWidthBtn','savePlaceBtn','returnPlaceBtn','readerSearchBtn','bookmarkBtn','spreadBtn','readerThemeBtn','fullscreenBtn',
@@ -130,7 +133,7 @@
       'translationSource','translationResult','translationCopyBtn','translationNotebookBtn','modalBackdrop','noteModal','noteQuote',
       'noteInput','saveNoteBtn','deleteAnnotationBtn','searchModal','bookSearchInput','searchStatus','searchResults','settingsModal','sourceLang','targetLang','uiScaleRange','uiScaleValue','uiScalePresets',
       'saveSettingsBtn','bookSettingsModal','bookCoverPreview','customCoverInput','chooseCoverBtn','restoreCoverBtn','bookTitleInput','bookAuthorInput',
-      'bookCollectionDropdown','bookCollectionDropdownLabel','bookCollectionChoices','bookCreateCollectionBtn','bookSeriesSelect','bookSeriesOrderInput','bookPinFromSettingsBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
+      'bookCollectionDropdown','bookCollectionDropdownLabel','bookCollectionChoices','bookCreateCollectionBtn','bookSeriesSelect','bookSeriesOrderInput','bookPinFromSettingsBtn','resetBookHistoryBtn','deleteBookFromSettingsBtn','saveBookSettingsBtn','collectionModal','collectionModalTitle',
       'collectionNameInput','deleteCollectionBtn','saveCollectionBtn','seriesModal','seriesModalTitle','seriesNameInput','deleteSeriesBtn','saveSeriesBtn','authModal','cloudNotConfigured','signedOutPanel','signedInPanel','authMessage',
       'googleConnectBtn','accountEmail','googleStorageSummary','syncDetail','syncNowBtn','legacyMigrationBox','legacyMigrationText','migrateLocalBtn','signOutBtn',
       'mobileBookSheetBackdrop','mobileBookSheet','mobileBookSheetCover','mobileBookSheetTitle','mobileBookSheetAuthor','mobileBookSheetProgress','mobileBookOpenBtn','mobileBookPinBtn','mobileBookSettingsBtn','toast'
@@ -1355,7 +1358,7 @@
     await refreshLibrary();
     await clearLegacyCloudCache();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      await navigator.serviceWorker.register('./service-worker.js?v=2.0.1', { updateViaCache:'none' }).catch(() => {});
+      await navigator.serviceWorker.register('./service-worker.js?v=2.0.2', { updateViaCache:'none' }).catch(() => {});
     }
     await initCloud();
   }
@@ -1392,6 +1395,13 @@
       const bookId = state.editingBookId;
       closeModals();
       if (bookId) await deleteBook(bookId);
+    });
+    els.resetBookHistoryBtn?.addEventListener('click', async () => {
+      const bookId = state.editingBookId;
+      if (!bookId) return;
+      if (!confirm('Đặt tiến độ và toàn bộ lịch sử hoàn thành của sách này về 0%? Highlight, quote, note và bookmark vẫn được giữ.')) return;
+      await resetBookHistory(bookId);
+      closeModals();
     });
     els.bookCreateCollectionBtn.addEventListener('click', () => openCollectionModal());
     els.createSeriesBtn?.addEventListener('click', () => openSeriesModal());
@@ -1586,6 +1596,21 @@
 
     bindNotebookEditor(els.bookNotebookToolbar, els.notebookEditor, scheduleNotebookSave);
     bindNotebookEditor(els.globalNotebookToolbar, els.globalNotebookEditor, scheduleGlobalNotebookSave);
+    els.globalNotebookEditor?.addEventListener('mousedown', event => {
+      if (event.target.closest('[data-delete-notebook-entry]')) event.preventDefault();
+    });
+    els.globalNotebookEditor?.addEventListener('click', async event => {
+      const button = event.target.closest('[data-delete-notebook-entry]');
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const entry = button.closest('.notebook-entry');
+      if (!entry || !confirm('Xóa note này? Thao tác sẽ được đồng bộ sang các thiết bị khác.')) return;
+      entry.remove();
+      await saveGlobalNotebook();
+      await renderGlobalNotebookList();
+      toast('Đã xóa note');
+    });
     els.globalNotebookSearch?.addEventListener('input', () => renderGlobalNotebookList());
     els.createNotebookNoteBtn?.addEventListener('click', openNewNotebookNoteModal);
     els.saveNewNotebookNoteBtn?.addEventListener('click', createNewNotebookNote);
@@ -1780,6 +1805,20 @@
     await dbPut('books', book);
     await refreshLibrary();
     if (openAfter) await openBook(bookId);
+  }
+
+  async function resetBookHistory(bookId) {
+    const book = await dbGet('books', bookId);
+    if (!book) return;
+    book.progress = 0;
+    book.lastLocation = null;
+    book.readingPlace = null;
+    book.completedCount = 0;
+    book.lastCompletedAt = null;
+    book.updatedAt = Date.now();
+    await dbPut('books', book);
+    await refreshLibrary();
+    toast('Đã đặt lại tiến độ và lịch sử hoàn thành');
   }
 
   async function loadCollections() {
@@ -2436,9 +2475,14 @@
     els.favoriteQuoteCount.textContent = String(state.favoriteQuotes.length);
     if (!state.favoriteQuotes.length) {
       els.favoriteQuoteList.innerHTML = `<div class="quote-panel-empty"><span>❝</span><strong>Chưa có quote yêu thích</strong><p>Quét một đoạn chữ trong sách và chọn ★ Quote để lưu tại đây.</p></div>`;
+      if (els.favoriteQuotePagination) els.favoriteQuotePagination.innerHTML = '';
       return;
     }
-    els.favoriteQuoteList.innerHTML = state.favoriteQuotes.map(quote => {
+    const pageSize = window.innerWidth <= 700 ? 4 : 6;
+    const totalPages = Math.max(1, Math.ceil(state.favoriteQuotes.length / pageSize));
+    state.favoriteQuotePage = clamp(state.favoriteQuotePage, 1, totalPages);
+    const pageQuotes = state.favoriteQuotes.slice((state.favoriteQuotePage - 1) * pageSize, state.favoriteQuotePage * pageSize);
+    els.favoriteQuoteList.innerHTML = pageQuotes.map(quote => {
       const book = state.books.find(item => item.id === quote.bookId);
       const quoteText = String(quote.text || '').trim();
       const canCollapse = quoteText.length > 240;
@@ -2462,6 +2506,12 @@
       const quote = state.favoriteQuotes.find(item => item.id === button.dataset.favoriteRemove);
       if (quote) await toggleFavoriteQuote(quote, false);
     }));
+    renderPagination(els.favoriteQuotePagination, totalPages, state.favoriteQuotePage, page => {
+      state.favoriteQuotePage = page;
+      state.expandedFavoriteQuoteIds.clear();
+      renderQuotePanel();
+      els.libraryQuotesPanel?.scrollIntoView({ block:'start', behavior:'smooth' });
+    });
   }
 
   async function renderGlobalNotebookList() {
@@ -2514,12 +2564,28 @@
     setTimeout(() => els.notebookNoteTitle.focus(), 50);
   }
 
+  function decorateNotebookEntries() {
+    if (!els.globalNotebookEditor) return;
+    $$('.notebook-entry', els.globalNotebookEditor).forEach(entry => {
+      if (!entry.dataset.noteId) entry.dataset.noteId = uid();
+      if (entry.querySelector('[data-delete-notebook-entry]')) return;
+      entry.insertAdjacentHTML('afterbegin', `<button type="button" class="notebook-entry-delete" data-delete-notebook-entry contenteditable="false" title="Xóa note" aria-label="Xóa note">×</button>`);
+    });
+  }
+
+  function globalNotebookHTMLForSave() {
+    const clone = els.globalNotebookEditor.cloneNode(true);
+    $$('[data-delete-notebook-entry]', clone).forEach(button => button.remove());
+    return clone.innerHTML;
+  }
+
   async function createNewNotebookNote() {
     const bookId = els.notebookNoteBookSelect.value || GLOBAL_NOTEBOOK_ID;
     const title = els.notebookNoteTitle.value.trim() || 'Note mới';
     await loadGlobalNotebook(bookId, true);
     const createdAt = new Intl.DateTimeFormat('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' }).format(new Date());
-    els.globalNotebookEditor.insertAdjacentHTML('beforeend', `<section class="notebook-entry"><h2>${escapeHTML(title)}</h2><small>${createdAt}</small><p><br></p></section>`);
+    els.globalNotebookEditor.insertAdjacentHTML('beforeend', `<section class="notebook-entry" data-note-id="${uid()}"><h2>${escapeHTML(title)}</h2><small>${createdAt}</small><p><br></p></section>`);
+    decorateNotebookEntries();
     await saveGlobalNotebook();
     await renderGlobalNotebookList();
     closeModals();
@@ -2535,6 +2601,7 @@
     const row = await dbGet('notebooks', bookId);
     els.globalNotebookEditor.contentEditable = 'true';
     els.globalNotebookEditor.innerHTML = row?.html || '';
+    decorateNotebookEntries();
     state.notebookRanges.delete(els.globalNotebookEditor);
     state.globalNotebookLoaded = true;
     els.globalNotebookSaveState.textContent = 'Đã lưu';
@@ -2673,6 +2740,8 @@
     state.epubFontSize = book.epubFontSize || 100;
     state.spread = !!book.spread;
     state.epubLocationReady = false;
+    state.progressSampleReady = false;
+    state.readerOpenedAt = Date.now();
     updateZoomIndicators();
 
     els.libraryView.classList.add('hidden');
@@ -3471,7 +3540,9 @@
     if (!state.currentBook) return;
     const previous = Number(state.currentBook.progress || 0);
     const next = clamp(pct, 0, 100);
-    if (previous < 99.5 && next >= 99.5) {
+    const canComplete = state.progressSampleReady && previous >= 1 && Date.now() - state.readerOpenedAt >= 1200;
+    state.progressSampleReady = true;
+    if (canComplete && previous < 99.5 && next >= 99.5) {
       state.currentBook.completedCount = completionCount(state.currentBook) + 1;
       state.currentBook.lastCompletedAt = Date.now();
     }
@@ -3949,7 +4020,7 @@
     if (!state.globalNotebookLoaded) return;
     await dbPut('notebooks', {
       bookId:state.globalNotebookBookId,
-      html:els.globalNotebookEditor.innerHTML,
+      html:globalNotebookHTMLForSave(),
       updatedAt:Date.now()
     });
     els.globalNotebookSaveState.textContent = 'Đã lưu';

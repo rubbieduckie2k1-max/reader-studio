@@ -2246,3 +2246,122 @@ body.dark .status-filter select { background:#FFF9EF; color:#302622; }
   }
   .favorite-quote-source > div:last-child { justify-content:flex-start; }
 }
+
+/* Reader Studio 2.0.2 — notebook deletion, quote pages and mobile notebook */
+.quote-pagination { margin-top:24px; }
+.notebook-entry { position:relative; padding-right:44px; }
+.notebook-entry-delete {
+  position:absolute;
+  top:0;
+  right:0;
+  width:32px;
+  height:32px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--surface-2);
+  color:var(--muted);
+  font:700 18px/1 Arial,sans-serif;
+  cursor:pointer;
+}
+.notebook-entry-delete:hover,
+.notebook-entry-delete:focus-visible {
+  border-color:color-mix(in srgb,var(--danger) 48%,var(--line));
+  background:color-mix(in srgb,var(--danger) 10%,var(--surface));
+  color:var(--danger);
+  outline:0;
+}
+
+@media (max-width:780px) {
+  .global-notebook-panel {
+    margin-top:16px;
+    height:auto;
+    min-height:0;
+    grid-template-columns:1fr;
+    overflow:hidden;
+    border-radius:16px;
+  }
+  .global-notebook-list-wrap {
+    max-height:none;
+    overflow:visible;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+  }
+  .global-notebook-list-head {
+    min-height:48px;
+    padding:0 14px;
+  }
+  .global-notebook-search { margin:10px 12px 4px; }
+  .global-notebook-search input { height:42px; font-size:12px; }
+  .global-notebook-search > span { top:11px; }
+  .global-notebook-list {
+    flex:none;
+    display:flex;
+    gap:8px;
+    min-height:70px;
+    padding:8px 12px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scroll-snap-type:x proximity;
+  }
+  .global-notebook-item {
+    flex:0 0 190px;
+    min-width:190px;
+    padding:9px;
+    scroll-snap-align:start;
+    background:color-mix(in srgb,var(--surface) 50%,transparent);
+  }
+  .global-notebook-item-icon { width:34px; height:42px; }
+  .global-new-note-btn {
+    position:static;
+    width:calc(100% - 24px);
+    margin:4px 12px 12px;
+    min-height:42px;
+    flex:0 0 auto;
+  }
+  .global-notebook-workspace { min-height:540px; }
+  .global-notebook-header {
+    min-height:72px;
+    padding:12px 16px;
+    align-items:center;
+  }
+  .global-notebook-header h2 {
+    max-width:68vw;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:20px;
+  }
+  .global-notebook-header .secondary-btn {
+    min-height:38px;
+    padding:0 12px;
+    flex:0 0 auto;
+  }
+  .global-notebook-panel .notebook-toolbar-large {
+    flex-wrap:nowrap;
+    gap:5px;
+    padding:9px 12px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scrollbar-width:thin;
+  }
+  .global-notebook-panel .notebook-toolbar-large > * { flex:0 0 auto; }
+  .global-notebook-panel .notebook-toolbar-divider { display:none; }
+  .global-notebook-editor {
+    flex:none;
+    min-height:410px;
+    padding:22px 18px 30px;
+    overflow:visible;
+    font-size:16px;
+    line-height:1.72;
+  }
+  .notebook-entry {
+    margin-bottom:22px;
+    padding-right:42px;
+    padding-bottom:20px;
+  }
+  .notebook-entry > h2 { padding-right:2px; font-size:20px; line-height:1.25; }
+  .notebook-entry-delete { width:34px; height:34px; }
+  .quote-pagination { margin-top:18px; }
+}

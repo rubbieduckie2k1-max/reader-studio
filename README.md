@@ -1,4 +1,12 @@
-# Reader Studio 2.0.1 — Google Drive Edition
+# Reader Studio 2.0.2 — Google Drive Edition
+
+## Cập nhật 2.0.2
+
+- Mỗi note tạo trong Ghi chú chung hoặc notebook theo sách có nút × để xóa riêng.
+- Quote yêu thích được chia trang: 6 quote mỗi trang trên desktop và 4 quote mỗi trang trên điện thoại.
+- Giao diện Ghi chú chung trên điện thoại được sắp xếp lại, không còn chồng nút; danh sách sách và thanh định dạng cuộn ngang.
+- Ngăn lần xác định vị trí đầu tiên của EPUB ghi nhầm sách mới là đã hoàn thành.
+- Thêm nút Đặt lại trạng thái đọc trong Tùy chỉnh sách để sửa tiến độ và lịch sử hoàn thành bị ghi nhầm.
 
 Reader Studio là web đọc PDF/EPUB theo hướng local-first. Bản 2.0 thay Supabase bằng Google Drive + Google Sheets để tránh giới hạn egress của dịch vụ cũ:
 
